@@ -77,10 +77,10 @@ def main():
             for task in model.results.tasks:
                 print(task.name + ":")
                 for job in task.jobs:
-                    print("%s %.3f ms" % (job.name, job.computation_time))
+                    print("{} {:.3f} ms".format(job.name, job.computation_time))
 
             for task in model.results.tasks.values():
-                print("%s %s" % (task.name, task.preemption_count))
+                print("{} {}".format(task.name, task.preemption_count))
         except NegativeSlackException as exc:
             print(exc)
 
