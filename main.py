@@ -1,8 +1,10 @@
 from argparse import ArgumentParser
 from collections import defaultdict
+from tkinter import Tk
 
 from simso.core import JobEvent
 
+from gui.maingui import MainGui
 from resources.xml import load_from_xml
 from schedulers.slack import SlackEvent
 from simulations.slack.simslack import create_configuration, create_model
@@ -49,7 +51,6 @@ def results(model, configuration, njobs):
     return task_first_exec, task_slack_cc
 
 
-
 def get_args():
     """ Command line arguments """
     parser = ArgumentParser()
@@ -61,6 +62,10 @@ def main():
     # rts = [{"nro": 1, "C": 1, "T": 3, "D": 3}, {"nro": 2, "C": 1, "T": 4, "D": 4}, {"nro": 3, "C": 2, "T": 6, "D": 6}]
     rts = load_from_xml("D:\\rts\\rtts_u10_n10_1000.xml", 5)
 
+    root = Tk()
+    gui = MainGui(root)
+    root.mainloop()
+"""
     # Verify that the task-set is schedulable
     schedulable = rta3(rts, True)
 
@@ -83,6 +88,7 @@ def main():
                 print("{} {}".format(task.name, task.preemption_count))
         except NegativeSlackException as exc:
             print(exc)
+            """
 
 
 if __name__ == '__main__':

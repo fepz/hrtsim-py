@@ -3,6 +3,11 @@ import math
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
 
 
+def get_slack_methods():
+    slack_methods = {"Fixed": "slack.SlackFixed.SlackFixed"}
+    return slack_methods
+
+
 def add_slack_data(rts, slack_methods):
     # create tasks
     for task in rts:

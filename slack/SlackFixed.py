@@ -4,15 +4,15 @@ from slack.SlackUtils import _workload
 from slack.SlackUtils import _slackcalc2
 
 
-class SlackFixed():
+class SlackFixed:
 
     def __init__(self):
         self.method_name = "Fixed2"
-        self.points = []
 
     def get_slack(self, task, task_list, tc):
         slack_cc = 0
         slack_calcs = 0
+        points = []
 
         xi = math.ceil(tc / task.period) * task.period
         task.data["di"] = xi + task.deadline
@@ -54,7 +54,7 @@ class SlackFixed():
         k2, slackcalc_cc, w = _slackcalc2(self.method_name, tl[:task.identifier], tc, task.data["di"], wc)
         slack_cc += slackcalc_cc
         slack_calcs += 1
-        self.points = [task.data["di"]]
+        points = [task.data["di"]]
 
         # update kmax and tmax if the slack at the deadline is bigger
         if k2 >= kmax:
@@ -76,7 +76,7 @@ class SlackFixed():
                 k2, slackcalc_cc, w = _slackcalc2(self.method_name, tl[:task.identifier], tc, ii, wc)
                 slack_cc += slackcalc_cc
                 slack_calcs += 1
-                self.points.append(ii)
+                points.append(ii)
                 slack_points.append((ii, k2, w))
 
                 # update kmax and tmax if a greater slack value was found
@@ -91,4 +91,4 @@ class SlackFixed():
                 # next arrival
                 ii += htask.period
 
-        return kmax, tmax, slack_cc, slack_calcs#, slack_points
+        return kmax, tmax, slack_cc, slack_calcs #, slack_points
