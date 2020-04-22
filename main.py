@@ -59,9 +59,6 @@ def get_args():
 
 
 def main():
-    # rts = [{"nro": 1, "C": 1, "T": 3, "D": 3}, {"nro": 2, "C": 1, "T": 4, "D": 4}, {"nro": 3, "C": 2, "T": 6, "D": 6}]
-    rts = load_from_xml("D:\\rts\\rtts_u10_n10_1000.xml", 5)
-
     root = Tk()
     gui = MainGui(root)
     root.mainloop()

@@ -4,7 +4,7 @@ from slack.SlackUtils import _workload
 from slack.SlackUtils import _slackcalc2
 
 
-class SlackFixed:
+class SlackFixed2:
 
     def __init__(self):
         self.method_name = "Fixed2"

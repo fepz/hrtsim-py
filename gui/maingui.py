@@ -1,7 +1,7 @@
 from tkinter import *
 
 from gui.SingleSimulation import SingleSimulationGui
-
+from gui.MultipleSimulationGui import MultipleSimulationGui
 
 class MainGui:
 
@@ -10,5 +10,7 @@ class MainGui:
         frame.pack()
         master.title("HrtSim")
 
-        self.button = Button(frame, text="Single Simulation", command=SingleSimulationGui)
-        self.button.pack()
+        self.singleSimButton = Button(frame, text="Single Simulation", command=SingleSimulationGui)
+        self.singleSimButton.pack()
+        self.multipleSimButton = Button(frame, text="Multiple Simulation", command=MultipleSimulationGui)
+        self.multipleSimButton.pack()
