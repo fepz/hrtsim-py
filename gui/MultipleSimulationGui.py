@@ -47,7 +47,6 @@ def run_sim(rts_id, params):
         run_sim.queue.put(rts_id)
 
         return [True, str_results]
-
     else:
         return [False]
 
@@ -75,7 +74,7 @@ class MultipleSimulationGui(Toplevel):
         # Queue.
         self.queue = Queue()
 
-        # Thread
+        # Thread to run the simulations.
         self.t = None
 
         # List of widgets that can be enabled/disabled.
@@ -223,10 +222,11 @@ class MultipleSimulationGui(Toplevel):
         # Disable user input widgets.
         self.widget_status(DISABLED)
 
-        # Start thread
+        # Start the simulation thread.
         self.t = multiprocessing.dummy.Process(target=self.run_simulation, args=(self.queue, params,))
         self.t.start()
 
+        # Wait for the results from the simulation processes.
         for _ in range(params["rts_count"]):
             self.queue.get()
             self.progressBar["value"] += self.progress_step
