@@ -7,7 +7,7 @@ from slack.SlackUtils import _slackcalc2
 class SlackFixed2:
 
     def __init__(self):
-        self.method_name = "Fixed2"
+        self.method_name = "Fixed2b"
 
     def get_slack(self, task, task_list, tc):
         slack_cc = 0

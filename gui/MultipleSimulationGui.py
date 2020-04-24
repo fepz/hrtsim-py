@@ -1,7 +1,10 @@
+import os
+import multiprocessing.dummy
+from itertools import repeat
+from multiprocessing import Pool, Queue
 from tkinter import *
 from tkinter import filedialog, messagebox
 from tkinter.ttk import Combobox, Progressbar
-from tkinter.ttk import Treeview
 
 from resources.xml import load_from_xml
 from rta.rta3 import rta3
@@ -9,6 +12,48 @@ from schedulers.SchedulerUtil import get_schedulers
 from simulations.slack.simslack import create_configuration, create_model
 from slack.SlackExceptions import NegativeSlackException
 from slack.SlackUtils import get_slack_methods
+
+
+def run_sim(rts_id, params):
+    # Load the rts from file.
+    rts = load_from_xml(params["file"], rts_id)
+
+    # Verify that the task-set is schedulable.
+    if rta3(rts, True):
+        try:
+            # Instantiate slack methods.
+            slack_methods = []
+            for slack_key, slack_class in params["slack_classes"]:
+                slack_methods.append(get_class(slack_class)())
+
+            # Create SimSo configuration and model.
+            cfg = create_configuration(rts, slack_methods, params["instance_cnt"])
+            model = create_model(cfg, slack_methods, params["instance_cnt"])
+
+            # Run the simulation.
+            model.run_model()
+
+            # Results
+            str_results = {}
+            for slack_method in slack_methods:
+                slack_method_results = []
+                str_results[slack_method.method_name] = slack_method_results
+                for task in model.task_list:
+                    slack_method_results.append("{}: {}".format(task.name, task.data[slack_method.method_name]["cc"]))
+
+        except NegativeSlackException as exc:
+            print(exc)
+
+        run_sim.queue.put(rts_id)
+
+        return [True, str_results]
+
+    else:
+        return [False]
+
+
+def pool_init(r_queue):
+    run_sim.queue = r_queue
 
 
 def get_class(kls):
@@ -27,7 +72,11 @@ class MultipleSimulationGui(Toplevel):
         self.title("Multiple Simulation")
         self.grid()
 
-        self.rts = None
+        # Queue.
+        self.queue = Queue()
+
+        # Thread
+        self.t = None
 
         # List of widgets that can be enabled/disabled.
         self.widgetList = []
@@ -68,10 +117,11 @@ class MultipleSimulationGui(Toplevel):
         self.resultsTextBox = Text(self.resultsFrame, yscrollcommand=self.resultsScrollbar.set)
         self.resultsScrollbar.config(command=self.resultsTextBox.yview)
 
-        self.runSimulationButton = Button(self, text="Run simulation", command=self.run_simulation)
+        self.runSimulationButton = Button(self, text="Run simulation", command=self.run_simulation_action)
         self.widgetList.append(self.runSimulationButton)
 
         self.progressBar = Progressbar(self, orient=HORIZONTAL, length=100, mode='determinate')
+        self.progress_step = 0
 
         top = self.winfo_toplevel()
         top.rowconfigure(0, weight=0)
@@ -105,93 +155,100 @@ class MultipleSimulationGui(Toplevel):
         self.runSimulationButton.grid(column=5, row=5, sticky="se")
         self.progressBar.grid(column=4, row=9, columnspan=2, sticky="nesw")
 
-    def load_table(self):
-        try:
-            self.rts = load_from_xml(self.selectedFile, int(self.rangeSim.get()))
-            # Verify that the task-set is schedulable
-            rta3(self.rts, True)
-            self.treeview.delete(*self.treeview.get_children())
-            for task_id, task in enumerate(self.rts, 1):
-                self.treeview.insert("", task_id, text=str(task["nro"]), values=(task["C"], task["BC"], task["AC"],
-                                                                                 task["T"], task["D"], task["B"],
-                                                                                 task["J"], task["Of"], task["Co"],
-                                                                                 task["wcrt"]))
-        except ValueError:
-            messagebox.showerror("Load RTS", "Invalid RTS number.")
-        except TypeError:
-            messagebox.showwarning("Load RTS", "No file open.")
-
     def open_file(self):
         self.selectedFile = filedialog.askopenfilename()
         self.selectedFileLbl.configure(text="File: " + self.selectedFile)
 
-    def run_simulation(self):
-        # Get the number of instances to evaluate.
+    def check_inputs(self):
+        # Verify that the file exists.
         try:
-            instance_cnt = int(self.nInstances.get())
-            if instance_cnt <= 0:
-                messagebox.showerror("Instance count", "Instance count must be greater than 0.")
-                return
+            os.path.isfile(self.selectedFile)
+        except TypeError:
+            messagebox.showerror("File", "Invalid file.".format(self.selectedFile))
+            return False
+
+        try:
+            # Get the number of instances to evaluate.
+            if int(self.nInstances.get()) <= 0:
+                messagebox.showerror("ERROR", "The number of instances must be greater than 0.")
+                return False
+
+            # Get the number of task-set to simulate.
+            if int(self.rangeSim.get()) <= 0:
+                messagebox.showerror("ERROR", "The number of RTS to simulate must be greater than 0.")
+                return False
         except ValueError:
-            messagebox.showerror("Instance count", "Invalid instance count.")
-            return
+            messagebox.showerror("ERROR", "Invalid number.")
+            return False
+
+        # Check the slack methods to evaluate.
+        if not len(self.slackListBox.curselection()):
+            messagebox.showerror("ERROR", "Select at least one Slack Stealing method.")
+            return False
+
+        # All inputs are correct.
+        return True
+
+    def get_params(self):
+        # Verify user inputs
+        if not self.check_inputs():
+            return {}
+
+        # Get the file with task-sets.
+        # Get the number of instances to evaluate.
+        # Get the number of task-set to simulate.
+        params = {"file": self.selectedFile, "instance_cnt": int(self.nInstances.get()),
+                  "rts_count": int(self.rangeSim.get()), "slack_classes": []}
 
         # Set the slack methods to evaluate.
-        slack_methods = []
-        for cursel in self.slackListBox.curselection():
-            slack_class_key = self.slackListBox.get(cursel)
-            slack_class = get_slack_methods()[slack_class_key]
-            slack_methods.append(get_class(slack_class)())
+        for cur_sel in self.slackListBox.curselection():
+            slack_class_key = self.slackListBox.get(cur_sel)
+            params["slack_classes"].append((slack_class_key, get_slack_methods()[slack_class_key]))
 
-        # Get the number of task-set to simulate.
-        rts_count = int(self.rangeSim.get())
+        return params
+
+    def run_simulation_action(self):
+        # Get params.
+        params = self.get_params()
+        if not params:
+            return
 
         # Reset progress bar.
         self.progressBar["value"] = 0
-        progress_step = 100 / rts_count
-        progress = 0
+        self.progress_step = 100 / int(self.rangeSim.get())
 
         # Clear results text box.
         self.resultsTextBox.delete('1.0', END)
 
-        self.widgetStatus(DISABLED)
+        # Disable user input widgets.
+        self.widget_status(DISABLED)
 
-        # Simulate the first rts_count task-sets.
-        for rts_number in range(rts_count):
-            # Load the rts from file.
-            rts = load_from_xml(self.selectedFile, int(self.rangeSim.get()))
+        # Start thread
+        self.t = multiprocessing.dummy.Process(target=self.run_simulation, args=(self.queue, params,))
+        self.t.start()
 
-            # Verify that the task-set is schedulable.
-            schedulable = rta3(rts, True)
+        for _ in range(params["rts_count"]):
+            self.queue.get()
+            self.progressBar["value"] += self.progress_step
+            self.progressBar.update()
 
-            if schedulable:
-                try:
-                    # Create SimSo configuration and model.
-                    cfg = create_configuration(rts, slack_methods, instance_cnt)
-                    model = create_model(cfg, slack_methods, instance_cnt)
+        # Enable user input widgets.
+        self.widget_status(NORMAL)
 
-                    # Run the simulation.
-                    model.run_model()
+    def run_simulation(self, queue, params):
+        # List of rts ids to search in the file.
+        rts_list = range(1, params["rts_count"] + 1)
 
-                    # Print results in the text box.
-                    self.resultsTextBox.insert(END, "RTS {:d} simulated successfully.\n".format(rts_number))
-                    for slack_method in slack_methods:
-                        for task in model.task_list:
-                            cc_str = "{}: {}\n".format(task.name, task.data[slack_method.method_name]["cc"])
-                            self.resultsTextBox.insert(END, cc_str)
+        with Pool(initializer=pool_init, initargs=(queue,)) as pool:
+            results = pool.starmap(run_sim, zip(rts_list, repeat(params)))
 
-                    # Updates progress bar.
-                    progress = progress + progress_step
-                    self.progressBar['value'] = progress
-                    self.progressBar.update()
+            for result in results:
+                if result[0]:
+                    for k, v in result[1].items():
+                        self.resultsTextBox.insert(END, k + "\n")
+                        for r in v:
+                            self.resultsTextBox.insert(END, r + "\n")
 
-                except NegativeSlackException as exc:
-                    print(exc)
-            else:
-                self.resultsTextBox.insert(END, "RTS {:d} not schedulable.\n".format(rts_number))
-
-        self.widgetStatus(NORMAL)
-
-    def widgetStatus(self, status):
+    def widget_status(self, status):
         for widget in self.widgetList:
             widget.configure(state=status)
