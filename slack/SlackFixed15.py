@@ -4,15 +4,14 @@ from slack.SlackUtils import _workload
 from slack.SlackUtils import _slackcalc2
 
 
-class SlackFixed2:
+class SlackFixed15:
 
     def __init__(self):
-        self.method_name = "Fixed2b"
+        self.method_name = "Fixed15"
 
     def get_slack(self, task, task_list, tc):
         slack_cc = 0
         slack_calcs = 0
-        points = []
 
         xi = math.ceil(tc / task.period) * task.period
         task.data["di"] = xi + task.deadline
@@ -49,6 +48,11 @@ class SlackFixed2:
         # workload at t
         wc, workload_cc = _workload(tl[:task.identifier], tc)
         slack_cc += workload_cc
+
+        # New theorem.
+        tmp = task.data["di"] - task.period
+        if tmp > intervalo:
+            intervalo = tmp
 
         # calculate slack in deadline
         k2, slackcalc_cc, w = _slackcalc2(self.method_name, tl[:task.identifier], tc, task.data["di"], wc)

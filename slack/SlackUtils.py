@@ -5,7 +5,7 @@ from slack.SlackExceptions import NegativeSlackException, DifferentSlackExceptio
 
 def get_slack_methods():
     slack_methods = {"Fixed": "slack.SlackFixed.SlackFixed",
-                     "Fixed2":  "slack.SlackFixed2.SlackFixed2"}
+                     "Fixed15":  "slack.SlackFixed15.SlackFixed15"}
     return slack_methods
 
 
@@ -91,7 +91,6 @@ def multiple_slack_calc(tc, job, tasks, slack_methods):
         if ss_tmp < 0:
             raise NegativeSlackException(tc, slack_method.method_name, job.name)
         slack_results.append((slack_method.method_name, ss_tmp, ttma_tmp, cc, slack_calcs))
-        #tmp_sc.append((slack_method.method_name, slack_calcs, cc))
 
     # verify that all the methods results are the same
     ss_ref = slack_results[0][1]
