@@ -3,6 +3,7 @@ from tkinter import *
 from gui.SingleSimulation import SingleSimulationGui
 from gui.MultipleSimulationGui import MultipleSimulationGui
 
+
 class MainGui:
 
     def __init__(self, master):
