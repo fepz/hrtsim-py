@@ -1,67 +1,20 @@
 import os
+import queue
+import pandas as pd
+
+import numpy as np
 import multiprocessing.dummy
 from itertools import repeat
 from multiprocessing import Pool, Queue
 from tkinter import *
 from tkinter import filedialog, messagebox
 from tkinter.ttk import Combobox, Progressbar
+from argparse import ArgumentParser
+from tabulate import tabulate
 
-from resources.xml import load_from_xml
-from rta.rta3 import rta3
 from schedulers.SchedulerUtil import get_schedulers
-from simulations.slack.simslack import create_configuration, create_model
-from slack.SlackExceptions import NegativeSlackException
 from slack.SlackUtils import get_slack_methods
-
-
-def run_sim(rts_id, params):
-    # Load the rts from file.
-    rts = load_from_xml(params["file"], rts_id)
-
-    # Verify that the task-set is schedulable.
-    if rta3(rts, True):
-        try:
-            # Instantiate slack methods.
-            slack_methods = []
-            for slack_key, slack_class in params["slack_classes"]:
-                slack_methods.append(get_class(slack_class)())
-
-            # Create SimSo configuration and model.
-            cfg = create_configuration(rts, slack_methods, params["instance_cnt"])
-            model = create_model(cfg, slack_methods, params["instance_cnt"])
-
-            # Run the simulation.
-            model.run_model()
-
-            # Results
-            str_results = {}
-            for slack_method in slack_methods:
-                slack_method_results = []
-                str_results[slack_method.method_name] = slack_method_results
-                for task in model.task_list:
-                    slack_method_results.append("{}: {}".format(task.name, task.data[slack_method.method_name]["cc"]))
-
-        except NegativeSlackException as exc:
-            print(exc)
-
-        run_sim.queue.put(rts_id)
-
-        return [True, str_results]
-    else:
-        return [False]
-
-
-def pool_init(r_queue):
-    run_sim.queue = r_queue
-
-
-def get_class(kls):
-    parts = kls.split('.')
-    module = ".".join(parts[:-1])
-    m = __import__(module)
-    for comp in parts[1:]:
-        m = getattr(m, comp)
-    return m
+from simulations.slack.simslack import run_sim, run_sim_set_queue, print_results
 
 
 class MultipleSimulationGui(Toplevel):
@@ -72,10 +25,13 @@ class MultipleSimulationGui(Toplevel):
         self.grid()
 
         # Queue.
-        self.queue = Queue()
+        self.queue = None
 
         # Thread to run the simulations.
-        self.t = None
+        self.sim_thread = None
+        self.wait_thread = None
+
+        self.pool = None
 
         # List of widgets that can be enabled/disabled.
         self.widgetList = []
@@ -83,7 +39,7 @@ class MultipleSimulationGui(Toplevel):
         self.selectedFile = None
         self.openFile = Button(self, text="Open XML file", command=self.open_file)
         self.widgetList.append(self.openFile)
-        self.selectedFileLbl = Label(self, text="File: no file selected.")
+        self.selectedFileLbl = Label(self, text="No file selected.")
 
         self.rangeSimLbl = Label(self, text="Number of RTS to simulate:")
         self.rangeSim = Entry(self, width=5)
@@ -116,23 +72,33 @@ class MultipleSimulationGui(Toplevel):
         self.resultsTextBox = Text(self.resultsFrame, yscrollcommand=self.resultsScrollbar.set)
         self.resultsScrollbar.config(command=self.resultsTextBox.yview)
 
-        self.runSimulationButton = Button(self, text="Run simulation", command=self.run_simulation_action)
-        self.widgetList.append(self.runSimulationButton)
+        self.errorsFrame = Frame(self, relief=SUNKEN)
+        self.errorsScrollbar = Scrollbar(self.errorsFrame)
+        self.errorsTextBox = Text(self.errorsFrame, yscrollcommand=self.errorsScrollbar.set)
+        self.errorsScrollbar.config(command=self.errorsTextBox.yview)
 
+        self.errorReportLbl = Label(self, text="No errors.")
+
+        self.runSimulationButton = Button(self, text="Run simulation", command=self.run_stop_simulation)
         self.progressBar = Progressbar(self, orient=HORIZONTAL, length=100, mode='determinate')
         self.progress_step = 0
 
-        top = self.winfo_toplevel()
-        top.rowconfigure(0, weight=0)
-        top.columnconfigure(0, weight=0)
+        self.saveSimulationResult = Button(self, text="Save Simulation", command=self.save_simulation_results)
+        self.widgetList.append(self.saveSimulationResult)
 
-        self.rowconfigure(0, weight=0)
-        self.rowconfigure(1, weight=0)
-        self.rowconfigure(2, weight=0)
-        self.rowconfigure(3, weight=0)
-        self.rowconfigure(4, weight=1)
-        self.rowconfigure(5, weight=1)
-        self.columnconfigure(1, weight=1)
+        top = self.winfo_toplevel()
+        self.rowconfigure(0, weight=0, pad=5)
+        self.rowconfigure(1, weight=0, pad=5)
+        self.rowconfigure(2, weight=0, pad=5)
+        self.rowconfigure(3, weight=0, pad=5)
+        self.rowconfigure(4, weight=0, pad=5)
+        self.rowconfigure(5, weight=2, pad=5)
+        self.rowconfigure(6, weight=0, pad=5)
+        self.rowconfigure(7, weight=0, pad=5)
+        self.rowconfigure(8, weight=0, pad=5)
+        self.rowconfigure(9, weight=0, pad=5)
+        self.columnconfigure(0, weight=0, pad=5)
+        self.columnconfigure(1, weight=1, pad=5)
 
         self.openFile.grid(column=0, row=0, sticky="w")
         self.selectedFileLbl.grid(column=1, row=0, sticky="w")
@@ -145,18 +111,30 @@ class MultipleSimulationGui(Toplevel):
         self.wcetLbl.grid(column=4, row=3, sticky="e")
         self.wcetComboBox.grid(column=5, row=3)
         self.nInstancesLbl.grid(column=4, row=4, sticky="e")
-        self.nInstances.grid(column=5, row=4, sticky="e")
+        self.nInstances.grid(column=5, row=4)
 
-        self.resultsFrame.grid(column=0, row=1, columnspan=4, rowspan=9, sticky="nesw")
+        self.resultsFrame.grid(column=0, row=1, columnspan=4, rowspan=5, sticky="nesw")
         self.resultsTextBox.pack(side=LEFT, fill=BOTH, expand=1)
         self.resultsScrollbar.pack(side=RIGHT, fill=Y)
 
-        self.runSimulationButton.grid(column=5, row=5, sticky="se")
-        self.progressBar.grid(column=4, row=9, columnspan=2, sticky="nesw")
+        self.errorReportLbl.grid(column=0, row=6, columnspan=4, sticky="nesw")
+
+        self.errorsFrame.grid(column=0, row=7, columnspan=4, rowspan=2, sticky="nesw")
+        self.errorsTextBox.pack(side=LEFT, fill=BOTH, expand=1)
+        self.errorsScrollbar.pack(side=RIGHT, fill=Y)
+
+        self.runSimulationButton.grid(column=5, row=8, sticky="se")
+        self.progressBar.grid(column=4, row=9, columnspan=2, sticky="sew")
+
+        self.saveSimulationResult.grid(column=0, row=9, sticky="w")
 
     def open_file(self):
         self.selectedFile = filedialog.askopenfilename()
-        self.selectedFileLbl.configure(text="File: " + self.selectedFile)
+        if self.selectedFile:
+            self.selectedFileLbl.configure(text=self.selectedFile)
+
+    def save_simulation_results(self):
+        return
 
     def check_inputs(self):
         # Verify that the file exists.
@@ -206,7 +184,14 @@ class MultipleSimulationGui(Toplevel):
 
         return params
 
-    def run_simulation_action(self):
+    def run_stop_simulation(self):
+        if self.sim_thread is None:
+            self.run_simulation()
+        else:
+            if self.sim_thread.is_alive():
+                self.stop_simulation()
+
+    def run_simulation(self):
         # Get params.
         params = self.get_params()
         if not params:
@@ -216,39 +201,89 @@ class MultipleSimulationGui(Toplevel):
         self.progressBar["value"] = 0
         self.progress_step = 100 / int(self.rangeSim.get())
 
-        # Clear results text box.
+        # Clear results and errors text boxes.
         self.resultsTextBox.delete('1.0', END)
+        self.errorsTextBox.delete('1.0', END)
 
         # Disable user input widgets.
         self.widget_status(DISABLED)
 
-        # Start the simulation thread.
-        self.t = multiprocessing.dummy.Process(target=self.run_simulation, args=(self.queue, params,))
-        self.t.start()
+        # Change button text.
+        self.runSimulationButton.config(text="Stop simulation")
 
+        # Initialize Queue.
+        self.queue = Queue()
+
+        # Start the simulation thread.
+        self.sim_thread = multiprocessing.dummy.Process(target=self.run_simulation_thread, args=(self.queue, params,))
+        self.sim_thread.start()
+
+        # Start the waiting thread.
+        self.wait_thread = multiprocessing.dummy.Process(target=self.wait_simulation_thread, args=(params,))
+        self.wait_thread.start()
+
+    def stop_simulation(self):
+        self.pool.terminate()
+        self.queue.close()
+
+    def wait_simulation_thread(self, params):
         # Wait for the results from the simulation processes.
         for _ in range(params["rts_count"]):
-            self.queue.get()
-            self.progressBar["value"] += self.progress_step
-            self.progressBar.update()
+            try:
+                self.queue.get()  # Could use non-blocking mode.
+                self.progressBar["value"] += self.progress_step
+                self.progressBar.update()
+            except queue.Empty:  # Only when using non-blocking mode.
+                pass
+            except OSError:  # For Python version > 3.8 should be ValueError.
+                break
+            except EOFError:  # The queue was closed.
+                break
+
+        self.sim_thread = None
+
+        # Change button text.
+        self.runSimulationButton.config(text="Run simulation")
+
+        # Reset the progress bar.
+        self.progressBar["value"] = 0
+        self.progressBar.update()
 
         # Enable user input widgets.
         self.widget_status(NORMAL)
 
-    def run_simulation(self, queue, params):
+    def run_simulation_thread(self, queue, params):
         # List of rts ids to search in the file.
         rts_list = range(1, params["rts_count"] + 1)
 
-        with Pool(initializer=pool_init, initargs=(queue,)) as pool:
-            results = pool.starmap(run_sim, zip(rts_list, repeat(params)))
+        self.pool = Pool(initializer=run_sim_set_queue, initargs=(queue,))
+        results = self.pool.starmap(run_sim, zip(rts_list, repeat(params)))
 
-            for result in results:
-                if result[0]:
-                    for k, v in result[1].items():
-                        self.resultsTextBox.insert(END, k + "\n")
-                        for r in v:
-                            self.resultsTextBox.insert(END, r + "\n")
+        results_list, error_list, not_schedulable_cnt, error_cnt = print_results(results)
+
+        for result_str in results_list:
+            self.resultsTextBox.insert(END, result_str)
+
+        for result_str in error_list:
+            self.errorsTextBox.insert(END, result_str)
+
+        self.errorReportLbl.configure(text="Not schedulable: {:d}. Errors: {:d}".format(not_schedulable_cnt, error_cnt))
 
     def widget_status(self, status):
         for widget in self.widgetList:
             widget.configure(state=status)
+
+
+def get_args():
+    """ Command line arguments """
+    parser = ArgumentParser()
+    return parser.parse_args()
+
+
+def main():
+    gui = MultipleSimulationGui()
+    gui.mainloop()
+
+
+if __name__ == '__main__':
+    main()

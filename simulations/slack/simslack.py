@@ -1,6 +1,10 @@
+import numpy as np
+from tabulate import tabulate
+from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
-
+from rta.rta3 import rta3
+from resources.xml import load_from_xml
 from slack.SlackExceptions import NegativeSlackException
 from slack.SlackUtils import add_slack_data
 
@@ -56,3 +60,93 @@ def create_model(configuration, slack_methods, instance_count):
 
 def run_simulation(model):
     model.run_model()
+
+
+def run_sim(rts_id, params):
+    # Load the rts from file.
+    rts = load_from_xml(params["file"], rts_id)
+
+    results = dict()
+    results["rts_id"] = rts_id
+    results["error"] = False
+    results["cc"] = dict()
+
+    try:
+        # Verify that the task-set is schedulable.
+        results["schedulable"] = rta3(rts, True)
+        if results["schedulable"]:
+            # Instantiate slack methods.
+            slack_methods = []
+            for slack_key, slack_class in params["slack_classes"]:
+                slack_methods.append(get_class(slack_class)())
+
+            # Create SimSo configuration and model.
+            cfg = create_configuration(rts, slack_methods, params["instance_cnt"])
+            model = create_model(cfg, slack_methods, params["instance_cnt"])
+
+            # Run the simulation.
+            model.run_model()
+
+            # For each slack method's results creates an Numpy array.
+            for slack_method in slack_methods:
+                slack_method_results = []
+                for task in model.task_list:
+                    slack_method_results.append(task.data[slack_method.method_name]["cc"])
+                results["cc"][slack_method.method_name] = np.array(slack_method_results)
+
+    except NegativeSlackException as exc:
+        results["error"] = True
+        results["error_msg"] = str(exc)
+    finally:
+        run_sim.queue.put(rts_id)
+
+    return results
+
+
+def run_sim_set_queue(r_queue):
+    run_sim.queue = r_queue
+
+
+def get_class(kls):
+    parts = kls.split('.')
+    module = ".".join(parts[:-1])
+    m = __import__(module)
+    for comp in parts[1:]:
+        m = getattr(m, comp)
+    return m
+
+
+def print_results(results):
+    r = defaultdict(list)
+
+    not_schedulable_cnt = 0
+    error_cnt = 0
+
+    result_list = []
+    error_list = []
+
+    for result in results:
+        if not result["error"]:
+            if result["schedulable"]:
+                for method_name, method_cc in result["cc"].items():
+                    r[method_name].append(method_cc)
+            else:
+                not_schedulable_cnt += 1
+                error_list.append("RTS {:d}: not schedulable.\n".format(result["rts_id"]))
+        else:
+            error_cnt += 1
+            error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
+
+    tasks_means = []
+    for method_name, method_cc in r.items():
+        # Genera arreglo (tareas x instancias) con la media de todos los sistemas simulados.
+        r_mean = np.mean(method_cc, axis=2, dtype=np.float32)
+        # Genera un vector con la media de las instancias por tarea.
+        tasks_means.append(np.mean(r_mean, axis=0, dtype=np.float32))
+
+    table_methods = list(r.keys())
+    table_tasks = ["T{:d}".format(n + 1) for n in range(len(tasks_means[0]))]
+    result_list.append("{}\n".format(tabulate(np.array(tasks_means).transpose(), showindex=table_tasks,
+                                              headers=table_methods, floatfmt=".4f", tablefmt="fancy_grid")))
+
+    return result_list, error_list, error_cnt, not_schedulable_cnt
