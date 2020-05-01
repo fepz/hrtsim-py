@@ -11,11 +11,13 @@ def rta3(rts, rall=True):
     t = rts[0]["C"]
     rts[0]["wcrt"] = t
 
+    schedulable = True
+
     for idx, task in enumerate(rts[1:], 1):
-        schedulable = True
+        task_schedulable = True
         t_mas = t + task["C"]
 
-        while schedulable:
+        while task_schedulable:
             t = t_mas
 
             for jdx, jtask in zip(range(len(rts[:idx]) - 1, -1, -1), reversed(rts[:idx])):
@@ -28,7 +30,7 @@ def rta3(rts, rall=True):
                         if not rall:
                             return False
                         else:
-                            schedulable = False
+                            schedulable = task_schedulable = False
 
                     a[jdx] = a_tmp
                     i[jdx] = tmp * jtask["T"]
@@ -38,4 +40,4 @@ def rta3(rts, rall=True):
 
         task["wcrt"] = t
 
-    return True
+    return schedulable
