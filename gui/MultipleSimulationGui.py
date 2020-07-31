@@ -1,20 +1,17 @@
 import os
 import queue
-import pandas as pd
+import simulations.slack.simslack as slacksim
 
-import numpy as np
 import multiprocessing.dummy
-from itertools import repeat
-from multiprocessing import Pool, Queue
+from multiprocessing import Pool, Queue, Lock
 from tkinter import *
 from tkinter import filedialog, messagebox
 from tkinter.ttk import Combobox, Progressbar
 from argparse import ArgumentParser
-from tabulate import tabulate
 
 from schedulers.SchedulerUtil import get_schedulers
 from slack.SlackUtils import get_slack_methods
-from simulations.slack.simslack import run_sim, run_sim_set_queue, print_results
+from simulations.slack.simslack import run_sim, print_results, print_results_options, process_result, get_aggregate_results
 
 
 class MultipleSimulationGui(Toplevel):
@@ -22,7 +19,9 @@ class MultipleSimulationGui(Toplevel):
     def __init__(self):
         Toplevel.__init__(self)
         self.title("Multiple Simulation")
-        self.grid()
+
+        # Simulation results.
+        self.simulation_results = None
 
         # Queue.
         self.queue = None
@@ -41,23 +40,23 @@ class MultipleSimulationGui(Toplevel):
         self.widgetList.append(self.openFile)
         self.selectedFileLbl = Label(self, text="No file selected.")
 
-        self.rangeSimLbl = Label(self, text="Number of RTS to simulate:")
+        self.rangeSimLbl = Label(self, text="# of RTS:")
         self.rangeSim = Entry(self, width=5)
         self.widgetList.append(self.rangeSim)
 
-        self.schedulerLbl = Label(self, text="Scheduler")
+        self.schedulerLbl = Label(self, text="Scheduler:")
         self.schedulerSelected = None
         self.schedulerComboBox = Combobox(self, textvariable=self.schedulerSelected)
         self.schedulerComboBox['values'] = [*get_schedulers()]
         self.widgetList.append(self.schedulerComboBox)
 
-        self.slackLbl = Label(self, text="Slack method")
+        self.slackLbl = Label(self, text="Slack method:")
         self.slackListBox = Listbox(self, selectmode=EXTENDED)
         for slackMethod in [*get_slack_methods()]:
             self.slackListBox.insert(END, slackMethod)
         self.widgetList.append(self.slackListBox)
 
-        self.wcetLbl = Label(self, text="Execution type")
+        self.wcetLbl = Label(self, text="Execution type:")
         self.wcetSelected = None
         self.wcetComboBox = Combobox(self, textvariable=self.wcetSelected)
         self.wcetComboBox['values'] = ('WCET', 'ACET', 'BCET')
@@ -68,11 +67,15 @@ class MultipleSimulationGui(Toplevel):
         self.widgetList.append(self.nInstances)
 
         self.resultsFrame = Frame(self, relief=SUNKEN)
+        self.resultsFrame.grid_rowconfigure(0, weight=1)
+        self.resultsFrame.grid_columnconfigure(0, weight=1)
         self.resultsScrollbar = Scrollbar(self.resultsFrame)
         self.resultsTextBox = Text(self.resultsFrame, yscrollcommand=self.resultsScrollbar.set)
         self.resultsScrollbar.config(command=self.resultsTextBox.yview)
 
         self.errorsFrame = Frame(self, relief=SUNKEN)
+        self.errorsFrame.grid_rowconfigure(0, weight=1)
+        self.errorsFrame.grid_columnconfigure(0, weight=1)
         self.errorsScrollbar = Scrollbar(self.errorsFrame)
         self.errorsTextBox = Text(self.errorsFrame, yscrollcommand=self.errorsScrollbar.set)
         self.errorsScrollbar.config(command=self.errorsTextBox.yview)
@@ -86,38 +89,44 @@ class MultipleSimulationGui(Toplevel):
         self.saveSimulationResult = Button(self, text="Save Simulation", command=self.save_simulation_results)
         self.widgetList.append(self.saveSimulationResult)
 
-        top = self.winfo_toplevel()
+        self.showResultsAsSelected = None
+        self.showResultsAsComboBox = Combobox(self, values=print_results_options(), state="readonly",
+                                              textvariable=self.showResultsAsSelected)
+        self.showResultsAsComboBox.current(0)
+        self.showResultsAsComboBox.bind("<<ComboboxSelected>>", self.change_result_presentation)
+        self.widgetList.append(self.showResultsAsComboBox)
+
         self.rowconfigure(0, weight=0, pad=5)
         self.rowconfigure(1, weight=0, pad=5)
         self.rowconfigure(2, weight=0, pad=5)
         self.rowconfigure(3, weight=0, pad=5)
         self.rowconfigure(4, weight=0, pad=5)
-        self.rowconfigure(5, weight=2, pad=5)
+        self.rowconfigure(5, weight=3, pad=5)
         self.rowconfigure(6, weight=0, pad=5)
         self.rowconfigure(7, weight=0, pad=5)
         self.rowconfigure(8, weight=0, pad=5)
-        self.rowconfigure(9, weight=0, pad=5)
         self.columnconfigure(0, weight=0, pad=5)
         self.columnconfigure(1, weight=1, pad=5)
 
         self.openFile.grid(column=0, row=0, sticky="w")
         self.selectedFileLbl.grid(column=1, row=0, sticky="w")
-        self.rangeSim.grid(column=3, row=0, sticky="e")
-        self.rangeSimLbl.grid(column=2, row=0, sticky="e")
+        self.rangeSimLbl.grid(column=4, row=0, sticky="e")
+        self.rangeSim.grid(column=5, row=0, sticky="we")
         self.schedulerLbl.grid(column=4, row=1, sticky="e")
         self.schedulerComboBox.grid(column=5, row=1)
         self.slackLbl.grid(column=4, row=2, sticky="e")
-        self.slackListBox.grid(column=5, row=2)
+        self.slackListBox.grid(column=5, row=2, sticky="we")
         self.wcetLbl.grid(column=4, row=3, sticky="e")
         self.wcetComboBox.grid(column=5, row=3)
         self.nInstancesLbl.grid(column=4, row=4, sticky="e")
-        self.nInstances.grid(column=5, row=4)
+        self.nInstances.grid(column=5, row=4, sticky="we")
 
         self.resultsFrame.grid(column=0, row=1, columnspan=4, rowspan=5, sticky="nesw")
         self.resultsTextBox.pack(side=LEFT, fill=BOTH, expand=1)
         self.resultsScrollbar.pack(side=RIGHT, fill=Y)
 
-        self.errorReportLbl.grid(column=0, row=6, columnspan=4, sticky="nesw")
+        self.errorReportLbl.grid(column=0, row=6, columnspan=3, sticky="nesw")
+        self.showResultsAsComboBox.grid(column=3, row=0, sticky="w")
 
         self.errorsFrame.grid(column=0, row=7, columnspan=4, rowspan=2, sticky="nesw")
         self.errorsTextBox.pack(side=LEFT, fill=BOTH, expand=1)
@@ -135,6 +144,9 @@ class MultipleSimulationGui(Toplevel):
 
     def save_simulation_results(self):
         return
+
+    def change_result_presentation(self, event):
+        self.print_simulation_results()
 
     def check_inputs(self):
         # Verify that the file exists.
@@ -249,25 +261,38 @@ class MultipleSimulationGui(Toplevel):
         self.progressBar["value"] = 0
         self.progressBar.update()
 
+        # Print results.
+        #self.print_simulation_results()
+        agg_results = get_aggregate_results()
+        print(agg_results)
+
         # Enable user input widgets.
         self.widget_status(NORMAL)
 
     def run_simulation_thread(self, queue, params):
-        # List of rts ids to search in the file.
-        rts_list = range(1, params["rts_count"] + 1)
+        process_result.queue = queue
+        slacksim.reset_aggregate_results()
+        self.pool = Pool()
+        for rts_id in range(1, params["rts_count"] + 1):
+            self.pool.apply_async(run_sim, (rts_id, params,), callback=process_result)
 
-        self.pool = Pool(initializer=run_sim_set_queue, initargs=(queue,))
-        results = self.pool.starmap(run_sim, zip(rts_list, repeat(params)))
+    def print_simulation_results(self):
+        if self.simulation_results is not None:
+            results_list, error_list, not_schedulable_cnt, error_cnt = print_results(self.simulation_results,
+                                                                                     self.showResultsAsComboBox.get())
 
-        results_list, error_list, not_schedulable_cnt, error_cnt = print_results(results)
+            # Clear results and errors text boxes.
+            self.resultsTextBox.delete('1.0', END)
+            self.errorsTextBox.delete('1.0', END)
 
-        for result_str in results_list:
-            self.resultsTextBox.insert(END, result_str)
+            for result_str in results_list:
+                self.resultsTextBox.insert(END, result_str)
 
-        for result_str in error_list:
-            self.errorsTextBox.insert(END, result_str)
+            for result_str in error_list:
+                self.errorsTextBox.insert(END, result_str)
 
-        self.errorReportLbl.configure(text="Not schedulable: {:d}. Errors: {:d}".format(not_schedulable_cnt, error_cnt))
+            self.errorReportLbl.configure(
+                text="Not schedulable: {:d}. Errors: {:d}".format(not_schedulable_cnt, error_cnt))
 
     def widget_status(self, status):
         for widget in self.widgetList:
