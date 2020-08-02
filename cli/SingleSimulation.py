@@ -2,18 +2,8 @@ from resources.xml import load_from_xml
 from rta.rta3 import rta3
 from simulations.slack.simslack import run_sim, print_results
 from slack.SlackExceptions import NegativeSlackException
-from slack.SlackUtils import get_slack_methods
 from tabulate import tabulate
 from rich.progress import Progress
-
-
-def get_class(kls):
-    parts = kls.split('.')
-    module = ".".join(parts[:-1])
-    m = __import__(module)
-    for comp in parts[1:]:
-        m = getattr(m, comp)
-    return m
 
 
 class SingleSimulationCli:
@@ -22,7 +12,7 @@ class SingleSimulationCli:
         self.rts_id = args.rts
         self.file = args.file
         self.instance_count = args.instance_count
-        self.ss_method = args.ss_method
+        self.ss_methods = args.ss_methods
         self.rts = load_from_xml(self.file, int(self.rts_id))
         self.schedulable = rta3(self.rts, True)
         print("File: {0}".format(self.file))
@@ -42,11 +32,9 @@ class SingleSimulationCli:
         try:
             params = {
                 "instance_cnt": self.instance_count,
-                "slack_classes": [],
+                "slack_classes": self.ss_methods,
                 "file": self.file
             }
-            for ss_method in self.ss_method:
-                params["slack_classes"].append((ss_method, get_slack_methods()[ss_method]))
 
             print("Running simulation...")
 
@@ -60,17 +48,23 @@ class SingleSimulationCli:
 
                 sim_result = run_sim(self.rts_id, params, progress_update)
 
-            print("Simulation results:")
-            print("Errors: {0}".format(sim_result["error"]))
-            print("SS CC:")
-            if self.instance_count < 20:
-                print(tabulate(sim_result['cc']["Fixed2"], showindex=range(1, len(sim_result['cc']['Fixed2'])+1),
-                               headers=range(1, self.instance_count+1), tablefmt="github"))
+            if sim_result["error"]:
+                print("Simulation failed!")
+                print("\t{0}".format(sim_result["error_msg"]))
+            if not sim_result["error"]:
+                print("Simulation successful!")
+                print("SS CC:")
+                if self.instance_count < 20:
+                    for ss_method, ss_result in sim_result['cc'].items():
+                        table_tasks = ["T{:d}".format(n + 1) for n in range(len(ss_result))]
+                        print("{0}".format(ss_method))
+                        print(tabulate(ss_result, showindex=table_tasks, headers=range(1, self.instance_count + 1),
+                                       tablefmt="github"))
 
-            print("Means per task:")
-            results_list, error_list, not_schedulable_cnt, error_cnt = print_results([sim_result])
-            for r in results_list:
-                print(r)
+                print("Means per task:")
+                results_list, error_list, not_schedulable_cnt, error_cnt = print_results([sim_result])
+                for r in results_list:
+                    print(r)
 
         except NegativeSlackException as exc:
             print(exc)

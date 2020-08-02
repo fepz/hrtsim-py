@@ -262,7 +262,7 @@ class MultipleSimulationGui(Toplevel):
         self.progressBar.update()
 
         # Print results.
-        #self.print_simulation_results()
+        self.print_simulation_results()
         agg_results = get_aggregate_results()
         print(agg_results)
 

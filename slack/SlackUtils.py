@@ -4,7 +4,7 @@ from slack.SlackExceptions import NegativeSlackException, DifferentSlackExceptio
 
 
 def get_slack_methods():
-    slack_methods = {"Fixed": "slack.SlackFixed.SlackFixed",
+    slack_methods = {"Fixed2": "slack.SlackFixed.SlackFixed",
                      "Fixed15":  "slack.SlackFixed15.SlackFixed15"}
     return slack_methods
 

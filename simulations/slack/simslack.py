@@ -6,7 +6,7 @@ from simso.core import Model
 from rta.rta3 import rta3
 from resources.xml import load_from_xml
 from slack.SlackExceptions import NegativeSlackException
-from slack.SlackUtils import add_slack_data
+from slack.SlackUtils import add_slack_data, get_slack_methods
 
 
 def create_configuration(rts, slack_methods, instance_count):
@@ -59,6 +59,10 @@ def create_model(configuration, slack_methods, instance_count, callback=None):
 
 
 def run_sim(rts_id, params, callback=None):
+    def private_callback(clock):
+        if callback:
+            callback(rts_id, clock)
+
     # Load the rts from file.
     rts = load_from_xml(params["file"], rts_id)
 
@@ -73,21 +77,22 @@ def run_sim(rts_id, params, callback=None):
         if results["schedulable"]:
             # Instantiate slack methods.
             slack_methods = []
-            for slack_key, slack_class in params["slack_classes"]:
+            for ss_method in params["slack_classes"]:
+                slack_class = get_slack_methods()[ss_method]
                 slack_methods.append(get_class(slack_class)())
 
             # Create SimSo configuration and model.
             cfg = create_configuration(rts, slack_methods, params["instance_cnt"])
-            model = create_model(cfg, slack_methods, params["instance_cnt"], callback)
+            model = create_model(cfg, slack_methods, params["instance_cnt"], private_callback)
 
             if callback is not None:
-                callback(0, cfg.duration)
+                callback(rts_id, 0, cfg.duration)
 
             # Run the simulation.
             model.run_model()
 
             if callback is not None:
-                callback(cfg.duration)
+                callback(rts_id, cfg.duration, None, True)
 
             # For each slack method's creates an Numpy matrix [ tasks x instances ]
             for slack_method in slack_methods:
@@ -99,6 +104,10 @@ def run_sim(rts_id, params, callback=None):
     except NegativeSlackException as exc:
         results["error"] = True
         results["error_msg"] = str(exc)
+
+    except KeyError as exc:
+        results["error"] = True
+        results["error_msg"] = "Slack Method not found: {0}.".format(str(exc))
 
     return results
 
