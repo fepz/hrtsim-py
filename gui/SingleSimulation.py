@@ -6,18 +6,10 @@ from tkinter.ttk import Treeview
 from resources.xml import load_from_xml
 from rta.rta3 import rta3
 from schedulers.SchedulerUtil import get_schedulers
-from simulations.slack.simslack import create_configuration, create_model
+from simulations.slack.simslack import run_sim, process_results, print_results
 from slack.SlackExceptions import NegativeSlackException
 from slack.SlackUtils import get_slack_methods
-
-
-def get_class(kls):
-    parts = kls.split('.')
-    module = ".".join(parts[:-1])
-    m = __import__(module)
-    for comp in parts[1:]:
-        m = getattr(m, comp)
-    return m
+from tabulate import tabulate
 
 
 class SingleSimulationGui(Toplevel):
@@ -149,35 +141,33 @@ class SingleSimulationGui(Toplevel):
             return
 
         try:
-            # Set the slack methods to evaluate.
-            slack_methods = get_slack_methods()
-            slack_class = slack_methods[self.slackComboBox.get()]
-            slack_method = get_class(slack_class)()
-
-            # Create SimSo configuration and model.
-            cfg = create_configuration(self.rts, [slack_method], instance_cnt)
-            model = create_model(cfg, [slack_method], instance_cnt)
+            params = {
+                "instance_cnt": instance_cnt,
+                "slack_classes": [self.slackComboBox.get()]
+            }
 
             # Run the simulation.
-            model.run_model()
+            sim_result = run_sim(self.rts, params)
 
             # Clear text box.
             self.resultsTextBox.delete('1.0', END)
 
-            for log in model.logs:
-                self.resultsTextBox.insert(END, log)
-                self.resultsTextBox.insert(END, "\n")
+            if sim_result["error"]:
+                self.resultsTextBox.insert(END, "Simulation failed!\n")
+                self.resultsTextBox.insert(END, "\t{0}".format(sim_result["error_msg"]))
+            else:
+                self.resultsTextBox.insert(END, "Simulation successful!\n")
+                self.resultsTextBox.insert(END, "SS CC:\n")
+                if instance_cnt < 20:
+                    for ss_method, ss_result in sim_result['cc'].items():
+                        table_tasks = ["T{:d}".format(n + 1) for n in range(len(ss_result))]
+                        self.resultsTextBox.insert(END, "{0}\n".format(ss_method))
+                        self.resultsTextBox.insert(END, tabulate(ss_result, showindex=table_tasks,
+                                                                 headers=range(1, instance_cnt + 1),
+                                                                 tablefmt="github"))
 
-            for task in model.results.tasks:
-                print(task.name + ":")
-                for job in task.jobs:
-                    print("{} {:.3f} ms".format(job.name, job.computation_time))
-
-            for task in model.results.tasks.values():
-                print("{} {}".format(task.name, task.preemption_count))
-
-            for task in model.task_list:
-                print("{}: {}".format(task.name, task.data[slack_method.method_name]["cc"]))
+                results, error_cnt, not_schedulable_cnt, error_list = process_results([sim_result], "mean_std")
+                self.resultsTextBox.insert(END, print_results(results, stdout=False))
 
         except NegativeSlackException as exc:
             print(exc)

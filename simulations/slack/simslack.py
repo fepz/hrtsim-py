@@ -227,7 +227,7 @@ def process_results(results, process_type):
     return process_types[process_type](r), not_schedulable_cnt, error_cnt, error_list
 
 
-def print_results(results, print_as="table"):
+def print_results(results, print_as="table", stdout=True):
     """
     Prints results of the simulation.
     :param results: results
@@ -237,4 +237,8 @@ def print_results(results, print_as="table"):
     # Se obtiene el número de tareas contando el número de resultados del primer método
     row_index = ["T{:d}".format(n + 1) for n in range(len(results[list(results.keys())[0]]))]
     if print_as == "table":
-        print(tabulate(results, headers="keys", floatfmt=".4f", tablefmt="github", showindex=row_index))
+        table = tabulate(results, headers="keys", floatfmt=".4f", tablefmt="github", showindex=row_index)
+        if stdout:
+            print(table)
+        else:
+            return table

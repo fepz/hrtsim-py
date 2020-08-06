@@ -1,6 +1,5 @@
 import os
 import queue
-import simulations.slack.simslack as slacksim
 
 import multiprocessing.dummy
 from multiprocessing import Pool, Queue, Lock
@@ -11,7 +10,21 @@ from argparse import ArgumentParser
 
 from schedulers.SchedulerUtil import get_schedulers
 from slack.SlackUtils import get_slack_methods
-from simulations.slack.simslack import run_sim, print_results, print_results_options, process_result, get_aggregate_results
+from simulations.slack.simslack import run_sim, print_results, print_results_options, process_results
+from concurrent.futures import ProcessPoolExecutor
+from resources.xml import load_from_xml
+
+
+def future_process_result(f):
+    future_process_result.queue.put(f.result())
+
+
+def run_simulation_thread(rqueue, params):
+    future_process_result.queue = rqueue
+    with ProcessPoolExecutor() as executor:
+        for rts_id in range(1, params["rts_count"] + 1):
+            future = executor.submit(run_sim, load_from_xml(params["file"], rts_id), params, None)
+            future.add_done_callback(future_process_result)
 
 
 class MultipleSimulationGui(Toplevel):
@@ -20,9 +33,6 @@ class MultipleSimulationGui(Toplevel):
         Toplevel.__init__(self)
         self.title("Multiple Simulation")
 
-        # Simulation results.
-        self.simulation_results = None
-
         # Queue.
         self.queue = None
 
@@ -30,7 +40,8 @@ class MultipleSimulationGui(Toplevel):
         self.sim_thread = None
         self.wait_thread = None
 
-        self.pool = None
+        # Simulation results
+        self.results = []
 
         # List of widgets that can be enabled/disabled.
         self.widgetList = []
@@ -192,7 +203,8 @@ class MultipleSimulationGui(Toplevel):
         # Set the slack methods to evaluate.
         for cur_sel in self.slackListBox.curselection():
             slack_class_key = self.slackListBox.get(cur_sel)
-            params["slack_classes"].append((slack_class_key, get_slack_methods()[slack_class_key]))
+            #params["slack_classes"].append((slack_class_key, get_slack_methods()[slack_class_key]))
+            params["slack_classes"].append(slack_class_key)
 
         return params
 
@@ -217,6 +229,8 @@ class MultipleSimulationGui(Toplevel):
         self.resultsTextBox.delete('1.0', END)
         self.errorsTextBox.delete('1.0', END)
 
+        self.results = []
+
         # Disable user input widgets.
         self.widget_status(DISABLED)
 
@@ -227,7 +241,7 @@ class MultipleSimulationGui(Toplevel):
         self.queue = Queue()
 
         # Start the simulation thread.
-        self.sim_thread = multiprocessing.dummy.Process(target=self.run_simulation_thread, args=(self.queue, params,))
+        self.sim_thread = multiprocessing.dummy.Process(target=run_simulation_thread, args=(self.queue, params,))
         self.sim_thread.start()
 
         # Start the waiting thread.
@@ -242,7 +256,7 @@ class MultipleSimulationGui(Toplevel):
         # Wait for the results from the simulation processes.
         for _ in range(params["rts_count"]):
             try:
-                self.queue.get()  # Could use non-blocking mode.
+                self.results.append(self.queue.get())  # Could use non-blocking mode.
                 self.progressBar["value"] += self.progress_step
                 self.progressBar.update()
             except queue.Empty:  # Only when using non-blocking mode.
@@ -263,36 +277,14 @@ class MultipleSimulationGui(Toplevel):
 
         # Print results.
         self.print_simulation_results()
-        agg_results = get_aggregate_results()
-        print(agg_results)
 
         # Enable user input widgets.
         self.widget_status(NORMAL)
 
-    def run_simulation_thread(self, queue, params):
-        process_result.queue = queue
-        slacksim.reset_aggregate_results()
-        self.pool = Pool()
-        for rts_id in range(1, params["rts_count"] + 1):
-            self.pool.apply_async(run_sim, (rts_id, params,), callback=process_result)
-
     def print_simulation_results(self):
-        if self.simulation_results is not None:
-            results_list, error_list, not_schedulable_cnt, error_cnt = print_results(self.simulation_results,
-                                                                                     self.showResultsAsComboBox.get())
-
-            # Clear results and errors text boxes.
-            self.resultsTextBox.delete('1.0', END)
-            self.errorsTextBox.delete('1.0', END)
-
-            for result_str in results_list:
-                self.resultsTextBox.insert(END, result_str)
-
-            for result_str in error_list:
-                self.errorsTextBox.insert(END, result_str)
-
-            self.errorReportLbl.configure(
-                text="Not schedulable: {:d}. Errors: {:d}".format(not_schedulable_cnt, error_cnt))
+        if self.results is not None:
+            results, error_cnt, not_schedulable_cnt, error_list = process_results(self.results, "mean_std")
+            self.resultsTextBox.insert(END, print_results(results, print_as=self.showResultsAsComboBox.get(), stdout=False))
 
     def widget_status(self, status):
         for widget in self.widgetList:
