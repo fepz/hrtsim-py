@@ -11,7 +11,6 @@ class MainGui:
         frame.pack()
         master.title("HrtSim")
 
-        self.singleSimButton = Button(frame, text="Single Simulation", command=SingleSimulationGui)
-        self.singleSimButton.pack()
-        self.multipleSimButton = Button(frame, text="Multiple Simulation", command=MultipleSimulationGui)
-        self.multipleSimButton.pack()
+        self.titleLabel = Label(frame, text="HrtSim v2").pack()
+        self.singleSimButton = Button(frame, text="Single Simulation", command=SingleSimulationGui).pack()
+        self.multipleSimButton = Button(frame, text="Multiple Simulation", command=MultipleSimulationGui).pack()

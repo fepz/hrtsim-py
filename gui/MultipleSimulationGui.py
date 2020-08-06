@@ -203,7 +203,6 @@ class MultipleSimulationGui(Toplevel):
         # Set the slack methods to evaluate.
         for cur_sel in self.slackListBox.curselection():
             slack_class_key = self.slackListBox.get(cur_sel)
-            #params["slack_classes"].append((slack_class_key, get_slack_methods()[slack_class_key]))
             params["slack_classes"].append(slack_class_key)
 
         return params

@@ -132,15 +132,6 @@ def run_sim(rts, params, callback=None):
     return results
 
 
-def get_class(kls):
-    parts = kls.split('.')
-    module = ".".join(parts[:-1])
-    m = __import__(module)
-    for comp in parts[1:]:
-        m = getattr(m, comp)
-    return m
-
-
 def print_results_options():
     return ["table", "csv"]
 
