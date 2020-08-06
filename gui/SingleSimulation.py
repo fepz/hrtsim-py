@@ -1,7 +1,6 @@
 from tkinter import *
 from tkinter import filedialog, messagebox
-from tkinter.ttk import Combobox
-from tkinter.ttk import Treeview
+from tkinter.ttk import Combobox, Progressbar, Treeview
 
 from resources.xml import load_from_xml
 from rta.rta3 import rta3
@@ -25,7 +24,7 @@ class SingleSimulationGui(Toplevel):
         self.openFile = Button(self, text="Open XML file", command=self.open_file)
         self.selectedFileLbl = Label(self, text="File: no file selected.")
 
-        self.selectedRts = Entry(self, width=5)
+        self.selectedRts = Entry(self, width=10)
         self.loadSelectedRts = Button(self, text="Load RTS", command=self.load_table)
 
         self.schedulerLbl = Label(self, text="Scheduler")
@@ -51,9 +50,8 @@ class SingleSimulationGui(Toplevel):
         self.resultsTextBox = Text(self.resultsFrame, yscrollcommand=self.resultsScrollbar.set)
         self.resultsScrollbar.config(command=self.resultsTextBox.yview)
 
-        self.runSimulationButton = Button(self, text="Run simulation", command=self.run_simulation)
-
-        tv = Treeview(self)
+        self.rtsViewFrame = Frame(self, relief=SUNKEN)
+        tv = Treeview(self.rtsViewFrame)
         tv['columns'] = ('C', 'BC', 'AC', 'T', 'D', 'B', 'J', 'O', 'Co', 'WCRT')
         tv.heading("#0", text='Tarea', anchor='w')
         tv.column("#0", anchor="w")
@@ -78,24 +76,31 @@ class SingleSimulationGui(Toplevel):
         tv.heading('WCRT', text='WCRT')
         tv.column('WCRT', anchor='center', width=50)
         self.treeview = tv
+        self.rtsViewScrollbar = Scrollbar(self.rtsViewFrame, command=self.treeview.yview)
+        self.treeview.configure(yscrollcommand=self.rtsViewScrollbar.set)
 
-        top = self.winfo_toplevel()
-        top.rowconfigure(0, weight=0)
-        top.columnconfigure(0, weight=0)
+        self.runSimulationButton = Button(self, text="Run simulation", command=self.run_simulation)
+
+        self.progressBar = Progressbar(self, orient=HORIZONTAL, length=100, mode='determinate')
+        self.progress_step = 0
 
         self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=0)
         self.rowconfigure(2, weight=0)
         self.rowconfigure(3, weight=0)
-        self.rowconfigure(4, weight=1)
+        self.rowconfigure(4, weight=0)
         self.rowconfigure(5, weight=1)
+        self.rowconfigure(6, weight=1)
+        self.rowconfigure(7, weight=0)
         self.columnconfigure(1, weight=1)
 
         self.openFile.grid(column=0, row=0, sticky="w")
         self.selectedFileLbl.grid(column=1, row=0, sticky="w")
         self.selectedRts.grid(column=2, row=0, sticky="e")
         self.loadSelectedRts.grid(column=3, row=0, sticky="e")
-        self.treeview.grid(column=0, row=1, columnspan=4, rowspan=5, sticky="nesw")
+        self.rtsViewFrame.grid(column=0, row=1, columnspan=4, rowspan=5, sticky="nesw")
+        self.treeview.pack(side=LEFT, fill=BOTH, expand=1)
+        self.rtsViewScrollbar.pack(side=RIGHT, fill=Y)
         self.schedulerLbl.grid(column=4, row=1, sticky="e")
         self.schedulerComboBox.grid(column=5, row=1)
         self.slackLbl.grid(column=4, row=2, sticky="e")
@@ -107,7 +112,8 @@ class SingleSimulationGui(Toplevel):
         self.resultsFrame.grid(column=0, row=6, columnspan=4, rowspan=4, sticky="nesw")
         self.resultsTextBox.pack(side=LEFT, fill=BOTH, expand=1)
         self.resultsScrollbar.pack(side=RIGHT, fill=Y)
-        self.runSimulationButton.grid(column=5, row=9, sticky="se")
+        self.runSimulationButton.grid(column=5, row=6, sticky="se")
+        self.progressBar.grid(column=4, row=7, columnspan=2, sticky="sew")
 
     def load_table(self):
         try:
@@ -146,8 +152,17 @@ class SingleSimulationGui(Toplevel):
                 "slack_classes": [self.slackComboBox.get()]
             }
 
+            # Reset progress bar.
+            self.progressBar["value"] = 0
+
+            def callback(r):
+                self.progressBar["value"] += r
+                self.progressBar.update()
+
             # Run the simulation.
-            sim_result = run_sim(self.rts, params)
+            sim_result = run_sim(self.rts, params, callback)
+
+            self.progressBar["value"] += (100 - self.progressBar["value"])
 
             # Clear text box.
             self.resultsTextBox.delete('1.0', END)
