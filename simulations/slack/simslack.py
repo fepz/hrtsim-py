@@ -4,12 +4,18 @@ from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
 from rta.rta3 import rta3
-from resources.xml import load_from_xml
 from slack.SlackExceptions import NegativeSlackException
-from slack.SlackUtils import add_slack_data, get_slack_methods
+from slack.SlackUtils import get_slack_methods
 
 
 def create_configuration(rts, slack_methods, instance_count):
+    """
+
+    :param rts:
+    :param slack_methods:
+    :param instance_count:
+    :return:
+    """
     # Create a SimSo configuration object.
     configuration = Configuration()
 
@@ -17,7 +23,16 @@ def create_configuration(rts, slack_methods, instance_count):
     configuration.duration = (rts[-1]["T"] * (instance_count + 1)) * configuration.cycles_per_ms
 
     # Add the required fields for slack stealing simulation.
-    add_slack_data(rts, slack_methods)
+    for task in rts:
+        # Data required by the slack stealing methods.
+        slack_data = {'slack': 0, 'wcrt': task["wcrt"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0,
+                      'last_slack': 0, 'ii': 0, 'k': 0}
+
+        # Each slack method needs its own copy of A, B, C and CC (computational cost).
+        for ss_method in slack_methods:
+            slack_data[ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': []}
+
+        task["slack_data"] = slack_data
 
     # Create the tasks and add them to the SimSo configuration.
     for task in rts:
@@ -39,6 +54,14 @@ def create_configuration(rts, slack_methods, instance_count):
 
 
 def create_model(configuration, slack_methods, instance_count, callback=None):
+    """
+
+    :param configuration:
+    :param slack_methods:
+    :param instance_count:
+    :param callback:
+    :return:
+    """
     # Creates a SimSo model from the provided SimSo configuration.
     model = Model(configuration, callback)
 
@@ -48,26 +71,28 @@ def create_model(configuration, slack_methods, instance_count, callback=None):
     # Number of instances to record.
     model.scheduler.data["instance_count"] = instance_count
 
+    # Use first slack method
+    slack_method = get_slack_methods()[slack_methods[0]]
+
     # Calculate task's slack at zero.
     for task in model.task_list:
-        task.data["slack"], task.data["ttma"], _, _ = slack_methods[0].get_slack(task, model.task_list, 0)
+        task.data["slack"], task.data["ttma"], _, _ = slack_method(task, model.task_list, 0)
         task.data["k"] = task.data["slack"]
         if task.data["slack"] < 0:
-            raise NegativeSlackException(0, task, slack_methods[0].method_name)
+            raise NegativeSlackException(0, task, slack_methods[0])
 
     return model
 
 
-def run_sim(rts_id, params, callback=None):
-    def private_callback(clock):
-        if callback:
-            callback(rts_id, clock)
+def run_sim(rts, params, callback=None):
+    """
 
-    # Load the rts from file.
-    rts = load_from_xml(params["file"], rts_id)
-
+    :param rts:
+    :param params:
+    :param callback:
+    :return:
+    """
     results = dict()
-    results["rts_id"] = rts_id
     results["error"] = False
     results["cc"] = dict()
 
@@ -75,31 +100,26 @@ def run_sim(rts_id, params, callback=None):
         # Verify that the task-set is schedulable.
         results["schedulable"] = rta3(rts, True)
         if results["schedulable"]:
-            # Instantiate slack methods.
-            slack_methods = []
-            for ss_method in params["slack_classes"]:
-                slack_class = get_slack_methods()[ss_method]
-                slack_methods.append(get_class(slack_class)())
+
+            # Callback
+            def private_callback(clock):
+                if callback:
+                    progress = int((clock / cfg.duration) * 10)
+                    callback(progress)
 
             # Create SimSo configuration and model.
-            cfg = create_configuration(rts, slack_methods, params["instance_cnt"])
-            model = create_model(cfg, slack_methods, params["instance_cnt"], private_callback)
-
-            if callback is not None:
-                callback(rts_id, 0, cfg.duration)
+            cfg = create_configuration(rts, params["slack_classes"], params["instance_cnt"])
+            model = create_model(cfg, params["slack_classes"], params["instance_cnt"], private_callback)
 
             # Run the simulation.
             model.run_model()
 
-            if callback is not None:
-                callback(rts_id, cfg.duration, None, True)
-
             # For each slack method's creates an Numpy matrix [ tasks x instances ]
-            for slack_method in slack_methods:
+            for slack_method in params["slack_classes"]:
                 slack_method_results = []
                 for task in model.task_list:
-                    slack_method_results.append(task.data[slack_method.method_name]["cc"])
-                results["cc"][slack_method.method_name] = np.array(slack_method_results)
+                    slack_method_results.append(task.data[slack_method]["cc"])
+                results["cc"][slack_method] = np.array(slack_method_results)
 
     except NegativeSlackException as exc:
         results["error"] = True
@@ -125,30 +145,48 @@ def print_results_options():
     return ["table", "csv"]
 
 
-def result_process_options():
-    return list(process_types.keys())
-
-
 def process_results_mean_only(r):
-    tasks_means = []
+    """
+
+    :param r:
+    :return:
+    """
+    tasks_means = dict()
     for method_name, method_cc in r.items():
         # Genera arreglo (tareas x instancias) con la media de todos los sistemas simulados.
         r_mean = np.mean(method_cc, axis=2, dtype=np.float32)
         # Genera un vector con la media de las instancias por tarea.
-        tasks_means.append(np.mean(r_mean, axis=0, dtype=np.float32))
+        tasks_means[method_name] = np.mean(r_mean, axis=0, dtype=np.float32)
 
     return tasks_means
 
 
-def process_results_mean_std():
-    return
+def process_results_mean_std(r):
+    """
+
+    :param r:
+    :return:
+    """
+    tasks_means = dict()
+    for method_name, method_cc in r.items():
+        # Genera arreglo (tareas x instancias) con la media de todos los sistemas simulados.
+        r_mean = np.mean(method_cc, axis=2, dtype=np.float32)
+        r_std = np.std(method_cc, axis=2, dtype=np.float32)
+        # Genera un vector con la media de las instancias por tarea.
+        tasks_means["{0}_mean".format(method_name)] = np.mean(r_mean, axis=0, dtype=np.float32)
+        tasks_means["{0}_std".format(method_name)] = np.std(r_mean, axis=0, dtype=np.float32)
+
+    return tasks_means
+
+
+def result_process_options():
+    return list(process_types.keys())
 
 
 process_types = {
     "mean_only": process_results_mean_only,
     "mean_std": process_results_mean_std
 }
-
 
 aggregate_results = {
     "schedulable_count": 0,
@@ -158,29 +196,13 @@ aggregate_results = {
 }
 
 
-def process_result(rts_result):
-    process_result.queue.put(rts_result["rts_id"])
-    if not rts_result["error"]:
-        if rts_result["schedulable"]:
-            aggregate_results["schedulable_count"] += 1
-        else:
-            aggregate_results["non_schedulable_list"].append(rts_result["rts_id"])
-    else:
-        aggregate_results["error_list"].append("RTS {:d}: {:s}.\n".format(rts_result["rts_id"], rts_result["error_msg"]))
-
-
-def get_aggregate_results():
-    return aggregate_results
-
-
-def reset_aggregate_results():
-    aggregate_results["schedulable_count"] = 0
-    aggregate_results["non_schedulable_list"] = []
-    aggregate_results["error_count"] = 0
-    aggregate_results["error_list"] = []
-
-
 def process_results(results, process_type):
+    """
+    Process simulation results.
+    :param results: simulation results
+    :param process_type: kind of analysis to perform to the results
+    :return: analysis result, non-schedulable count, error count and error list
+    """
     r = defaultdict(list)
 
     schedulable_cnt = 0
@@ -202,48 +224,17 @@ def process_results(results, process_type):
             error_cnt += 1
             error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
 
-    return process_types[process_type](r), error_cnt, not_schedulable_cnt, error_list
+    return process_types[process_type](r), not_schedulable_cnt, error_cnt, error_list
 
 
 def print_results(results, print_as="table"):
-    r = defaultdict(list)
-
-    not_schedulable_cnt = 0
-    error_cnt = 0
-
-    result_list = []
-    error_list = []
-
-    for result in results:
-        if not result["error"]:
-            if result["schedulable"]:
-                for method_name, method_cc in result["cc"].items():
-                    r[method_name].append(method_cc)
-            else:
-                not_schedulable_cnt += 1
-                error_list.append("RTS {:d}: not schedulable.\n".format(result["rts_id"]))
-        else:
-            error_cnt += 1
-            error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
-
-    tasks_means = []
-    for method_name, method_cc in r.items():
-        # Genera arreglo (tareas x instancias) con la media de todos los sistemas simulados.
-        r_mean = np.mean(method_cc, axis=2, dtype=np.float32)
-        # Genera un vector con la media de las instancias por tarea.
-        tasks_means.append(np.mean(r_mean, axis=0, dtype=np.float32))
-
+    """
+    Prints results of the simulation.
+    :param results: results
+    :param print_as: table or csv
+    :return: nothing
+    """
+    # Se obtiene el número de tareas contando el número de resultados del primer método
+    row_index = ["T{:d}".format(n + 1) for n in range(len(results[list(results.keys())[0]]))]
     if print_as == "table":
-        table_methods = list(r.keys())
-        table_tasks = ["T{:d}".format(n + 1) for n in range(len(tasks_means[0]))]
-        result_list.append("{}\n".format(tabulate(np.array(tasks_means).transpose(), showindex=table_tasks,
-                                                  headers=table_methods, floatfmt=".4f", tablefmt="github")))
-    elif print_as == "csv":
-        from io import StringIO
-        s = StringIO()
-        np.savetxt(s, np.array(tasks_means).transpose(), fmt="%.4f")
-        result_list.append("{}\n".format(s.getvalue()))
-
-    return result_list, error_list, error_cnt, not_schedulable_cnt
-
-
+        print(tabulate(results, headers="keys", floatfmt=".4f", tablefmt="github", showindex=row_index))

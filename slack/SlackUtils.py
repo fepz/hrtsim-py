@@ -2,28 +2,16 @@ import math
 
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
 
+from slack import SlackFixed, SlackFixed15
+
 
 def get_slack_methods():
-    slack_methods = {"Fixed2": "slack.SlackFixed.SlackFixed",
-                     "Fixed15":  "slack.SlackFixed15.SlackFixed15"}
+    slack_methods = {"Fixed2": SlackFixed.get_slack,
+                     "Fixed15": SlackFixed15.get_slack}
     return slack_methods
 
 
-def add_slack_data(rts, slack_methods):
-    # Add additional parameters to each task.
-    for task in rts:
-        # Data required by the slack stealing methods.
-        slack_data = {'slack': 0, 'wcrt': task["wcrt"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0,
-                      'last_slack': 0, 'ii': 0, 'k': 0}
-
-        # Each slack method needs its own copy of A, B, C and CC (computational cost).
-        for ss_method in slack_methods:
-            slack_data[ss_method.method_name] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': []}
-
-        task["slack_data"] = slack_data
-
-
-def _workload(task_list, tc):
+def workload(task_list, tc):
     w = 0
     cc = 0
 
@@ -35,26 +23,7 @@ def _workload(task_list, tc):
     return w, cc
 
 
-def _slackcalc(self, task_list, tc, t, wc):
-    w = 0
-    cc = 0
-
-    for task in task_list:
-        b = task.data[self.method_name]["b"]
-
-        if (t > b) or (t <= (b - task.period)):
-            a_t = math.ceil(t / task.period)
-            cc += 1
-            a = a_t * task.wcet
-            task.data[self.method_name]["a"] = a
-            task.data[self.method_name]["b"] = a_t * task.period
-
-        w = w + task.data[self.method_name]["a"]
-
-    return t - tc - w + wc, cc
-
-
-def _slackcalc2(method_name, task_list, tc, t, wc):
+def slackcalc(method_name, task_list, tc, t, wc):
     w = 0
     cc = 0
 
@@ -76,21 +45,18 @@ def _slackcalc2(method_name, task_list, tc, t, wc):
 def reduce_slacks(tasks, amount, t):
     for task in tasks:
         task.data["slack"] -= amount
-
         if task.data["slack"] < 0:
-            raise NegativeSlackException(t, task)
+            raise NegativeSlackException(t, task, "Scheduler")
 
 
 def multiple_slack_calc(tc, job, tasks, slack_methods):
-    slack_results = []
-    #tmp_sc = []
-
     # calculate slack with each method in slack_methods
-    for slack_method in slack_methods:
-        ss_tmp, ttma_tmp, cc, slack_calcs = slack_method.get_slack(job.task, tasks, tc)
-        if ss_tmp < 0:
-            raise NegativeSlackException(tc, slack_method.method_name, job.name)
-        slack_results.append((slack_method.method_name, ss_tmp, ttma_tmp, cc, slack_calcs))
+    slack_results = [(m,) + get_slack_methods()[m](job.task, tasks, tc) for m in slack_methods]
+
+    # check for negative slacks
+    for result in slack_results:
+        if result[1] < 0:
+            raise NegativeSlackException(tc, result[0], job.name)
 
     # verify that all the methods results are the same
     ss_ref = slack_results[0][1]
