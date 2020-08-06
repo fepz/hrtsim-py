@@ -151,7 +151,7 @@ def load_from_xml(file, rts_id, start=0, limit=10000):
 
         # Add the required fields for slack stealing simulation.
         for task in rts["tasks"]:
-            task["slack_data"] = {'slack': task["k"], 'wcrt': task["R"], 'ttma': 0, 'di': 0, 'start_exec_time': 0,
-                                  'last_psi': 0, 'last_slack': 0, 'ii': 0, 'k': task["k"]}
+            task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0,
+                          'ii': 0}
 
     return rts

@@ -26,13 +26,13 @@ def create_configuration(rts, slack_methods, instance_count):
     for task in rts["tasks"]:
         # Each slack method needs its own copy of A, B, C and CC (computational cost).
         for ss_method in slack_methods:
-            task["slack_data"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': []}
+            task["ss"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': []}
 
     # Create the tasks and add them to the SimSo configuration.
     for task in rts["tasks"]:
         configuration.add_task(name="T_{0}".format(int(task["nro"])), identifier=int(task["nro"]),
                                period=task["T"], activation_date=0, deadline=task["D"], wcet=task["C"],
-                               data=task["slack_data"])
+                               data=task)
 
     # Add a processor.
     configuration.add_processor(name="CPU 1", identifier=1)
@@ -86,7 +86,7 @@ def run_sim(rts, params, callback=None):
             for slack_method in params["slack_classes"]:
                 slack_method_results = []
                 for task in model.task_list:
-                    slack_method_results.append(task.data[slack_method]["cc"])
+                    slack_method_results.append(task.data["ss"][slack_method]["cc"])
                 results["cc"][slack_method] = np.array(slack_method_results)
 
     except NegativeSlackException as exc:

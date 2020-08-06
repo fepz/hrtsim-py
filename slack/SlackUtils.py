@@ -28,24 +28,24 @@ def slackcalc(method_name, task_list, tc, t, wc):
     cc = 0
 
     for task in task_list:
-        b = task.data[method_name]["b"]
+        b = task.data["ss"][method_name]["b"]
 
         if (t > b) or (t <= (b - task.period)):
             a_t = math.ceil(t / task.period)
             cc += 1
             a = a_t * task.wcet
-            task.data[method_name]["a"] = a
-            task.data[method_name]["b"] = a_t * task.period
+            task.data["ss"][method_name]["a"] = a
+            task.data["ss"][method_name]["b"] = a_t * task.period
 
-        w = w + task.data[method_name]["a"]
+        w = w + task.data["ss"][method_name]["a"]
 
     return t - tc - w + wc, cc, w
 
 
 def reduce_slacks(tasks, amount, t):
     for task in tasks:
-        task.data["slack"] -= amount
-        if task.data["slack"] < 0:
+        task.data["ss"]["slack"] -= amount
+        if task.data["ss"]["slack"] < 0:
             raise NegativeSlackException(t, task, "Scheduler")
 
 

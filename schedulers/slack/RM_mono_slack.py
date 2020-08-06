@@ -37,7 +37,7 @@ class RM_mono_slack(Scheduler):
             raise MissedDeadlineException(tc, job)
 
         # executed time in ms since last execution
-        job_runtime = (self.sim.now() - job.task.data["start_exec_time"]) / self.sim.cycles_per_ms
+        job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
 
         # decrement higher priority tasks slack
         reduce_slacks(self.task_list[:(job.task.identifier - 1)], job_runtime, tc)
@@ -46,19 +46,19 @@ class RM_mono_slack(Scheduler):
         ss, ttma, slack_results = multiple_slack_calc(tc, job, self.task_list, self.data["slack_methods"])
 
         # log results
-        job.task.data["slack"], job.task.data["ttma"] = ss, ttma
+        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss, ttma
 
         # Record the computational cost
         if job.task._job_count <= self.sim.scheduler.data["instance_count"]:
             for slack_result in slack_results:
-                job.task.data[slack_result[0]]["cc"].append(slack_result[3])
+                job.task.data["ss"][slack_result[0]]["cc"].append(slack_result[3])
 
         job.task.monitor.observe(SlackEvent(job, slack_results, SlackEvent.CALC_SLACK))
 
-        self._sim.logger.log(job.name + " Slack calculated: {:f}".format(job.task.data["slack"]), kernel=True)
+        self._sim.logger.log(job.name + " Slack calculated: {:f}".format(job.task.data["ss"]["slack"]), kernel=True)
 
         # find system new minimum slack
-        self.min_slack = min([task.data["slack"] for task in self.task_list])
+        self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
 
         self.ready_list.remove(job)
         job.cpu.resched()
@@ -69,20 +69,20 @@ class RM_mono_slack(Scheduler):
             tc = self.sim.now() / self.sim.cycles_per_ms
 
             # current job executed time in ms
-            job_runtime = (self.sim.now() - cpu.running.task.data["start_exec_time"]) / self.sim.cycles_per_ms
+            job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
 
             # decrement higher priority tasks slack
             reduce_slacks(self.task_list[:(cpu.running.task.identifier - 1)], job_runtime, tc)
 
             # find system new minimum slack
-            self.min_slack = min([task.data["slack"] for task in self.task_list])
+            self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
 
         if self.ready_list:
             # ready job with the highest priority (lowest period)
             job = min(self.ready_list, key=lambda x: x.period)
 
             # update execution start time
-            job.task.data["start_exec_time"] = self.sim.now()
+            job.task.data["ss"]["start_exec_time"] = self.sim.now()
         else:
             # idle time start
             self.idle_start = self.sim.now()
