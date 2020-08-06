@@ -23,12 +23,12 @@ def run_simulation(args):
 
     rts_list = mixrange(args.rts)
     if len(rts_list) == 1:
-        run_single_simulation(rts_list[0], load_from_xml(args.file, rts_list[0]), args)
+        run_single_simulation(load_from_xml(args.file, rts_list[0]), args)
     else:
         run_multiple_simulation(rts_list, args)
 
 
-def run_single_simulation(rts_id, rts, args):
+def run_single_simulation(rts, args):
     """
     Simulate an rts
     :param rts_id: rts id
@@ -38,10 +38,12 @@ def run_single_simulation(rts_id, rts, args):
     """
 
     print("File: {0}".format(args.file))
-    print("RTS: {0}".format(rts_id))
+    print("RTS: {0}".format(rts["id"]))
+    print("FU: {:.2%}".format(rts["fu"]))
+    print("LCM: {:.5E}".format(rts["lcm"]))
     print("Instances: {0}".format(args.instance_count))
     print("Tasks:")
-    print(tabulate(rts, tablefmt="github", headers="keys"))
+    print(tabulate(rts["tasks"], tablefmt="github", headers="keys"))
 
     params = {
         "instance_cnt": args.instance_count,

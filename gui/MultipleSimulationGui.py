@@ -22,9 +22,20 @@ def future_process_result(f):
 def run_simulation_thread(rqueue, params):
     future_process_result.queue = rqueue
     with ProcessPoolExecutor() as executor:
-        for rts_id in range(1, params["rts_count"] + 1):
+        for rts_id in params["rts_list"]:
             future = executor.submit(run_sim, load_from_xml(params["file"], rts_id), params, None)
             future.add_done_callback(future_process_result)
+
+
+def mixrange(s):
+    r = []
+    for i in s.split(','):
+        if '-' not in i:
+            r.append(int(i))
+        else:
+            l, h = map(int, i.split('-'))
+            r += range(l, h+1)
+    return r
 
 
 class MultipleSimulationGui(Toplevel):
@@ -43,6 +54,9 @@ class MultipleSimulationGui(Toplevel):
         # Simulation results
         self.results = []
 
+        # List of RTS to simulate
+        self.rts_list = None
+
         # List of widgets that can be enabled/disabled.
         self.widgetList = []
 
@@ -52,7 +66,7 @@ class MultipleSimulationGui(Toplevel):
         self.selectedFileLbl = Label(self, text="No file selected.")
 
         self.rangeSimLbl = Label(self, text="# of RTS:")
-        self.rangeSim = Entry(self, width=5)
+        self.rangeSim = Entry(self, width=20)
         self.widgetList.append(self.rangeSim)
 
         self.schedulerLbl = Label(self, text="Scheduler:")
@@ -174,7 +188,8 @@ class MultipleSimulationGui(Toplevel):
                 return False
 
             # Get the number of task-set to simulate.
-            if int(self.rangeSim.get()) <= 0:
+            self.rts_list = mixrange(self.rangeSim.get())
+            if len(self.rts_list) == 0:
                 messagebox.showerror("ERROR", "The number of RTS to simulate must be greater than 0.")
                 return False
         except ValueError:
@@ -198,7 +213,7 @@ class MultipleSimulationGui(Toplevel):
         # Get the number of instances to evaluate.
         # Get the number of task-set to simulate.
         params = {"file": self.selectedFile, "instance_cnt": int(self.nInstances.get()),
-                  "rts_count": int(self.rangeSim.get()), "slack_classes": []}
+                  "rts_list": self.rts_list, "slack_classes": []}
 
         # Set the slack methods to evaluate.
         for cur_sel in self.slackListBox.curselection():
@@ -222,7 +237,7 @@ class MultipleSimulationGui(Toplevel):
 
         # Reset progress bar.
         self.progressBar["value"] = 0
-        self.progress_step = 100 / int(self.rangeSim.get())
+        self.progress_step = 100 / len(self.rts_list)
 
         # Clear results and errors text boxes.
         self.resultsTextBox.delete('1.0', END)
@@ -253,7 +268,7 @@ class MultipleSimulationGui(Toplevel):
 
     def wait_simulation_thread(self, params):
         # Wait for the results from the simulation processes.
-        for _ in range(params["rts_count"]):
+        for _ in params["rts_list"]:
             try:
                 self.results.append(self.queue.get())  # Could use non-blocking mode.
                 self.progressBar["value"] += self.progress_step

@@ -20,22 +20,16 @@ def create_configuration(rts, slack_methods, instance_count):
     configuration = Configuration()
 
     # Simulate until the lower priority task has n instantiations.
-    configuration.duration = (rts[-1]["T"] * (instance_count + 1)) * configuration.cycles_per_ms
+    configuration.duration = (rts["tasks"][-1]["T"] * (instance_count + 1)) * configuration.cycles_per_ms
 
-    # Add the required fields for slack stealing simulation.
-    for task in rts:
-        # Data required by the slack stealing methods.
-        slack_data = {'slack': 0, 'wcrt': task["wcrt"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0,
-                      'last_slack': 0, 'ii': 0, 'k': 0}
-
+    # Add some extra required fields for slack stealing simulation.
+    for task in rts["tasks"]:
         # Each slack method needs its own copy of A, B, C and CC (computational cost).
         for ss_method in slack_methods:
-            slack_data[ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': []}
-
-        task["slack_data"] = slack_data
+            task["slack_data"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': []}
 
     # Create the tasks and add them to the SimSo configuration.
-    for task in rts:
+    for task in rts["tasks"]:
         configuration.add_task(name="T_{0}".format(int(task["nro"])), identifier=int(task["nro"]),
                                period=task["T"], activation_date=0, deadline=task["D"], wcet=task["C"],
                                data=task["slack_data"])
@@ -53,37 +47,6 @@ def create_configuration(rts, slack_methods, instance_count):
     return configuration
 
 
-def create_model(configuration, slack_methods, instance_count, callback=None):
-    """
-
-    :param configuration:
-    :param slack_methods:
-    :param instance_count:
-    :param callback:
-    :return:
-    """
-    # Creates a SimSo model from the provided SimSo configuration.
-    model = Model(configuration, callback)
-
-    # Add the slack methods to evaluate.
-    model.scheduler.data["slack_methods"] = slack_methods
-
-    # Number of instances to record.
-    model.scheduler.data["instance_count"] = instance_count
-
-    # Use first slack method
-    slack_method = get_slack_methods()[slack_methods[0]]
-
-    # Calculate task's slack at zero.
-    for task in model.task_list:
-        task.data["slack"], task.data["ttma"], _, _ = slack_method(task, model.task_list, 0)
-        task.data["k"] = task.data["slack"]
-        if task.data["slack"] < 0:
-            raise NegativeSlackException(0, task, slack_methods[0])
-
-    return model
-
-
 def run_sim(rts, params, callback=None):
     """
 
@@ -93,14 +56,13 @@ def run_sim(rts, params, callback=None):
     :return:
     """
     results = dict()
+    results["rts_id"] = rts["id"]
+    results["schedulable"] = rts["schedulable"]
     results["error"] = False
     results["cc"] = dict()
 
     try:
-        # Verify that the task-set is schedulable.
-        results["schedulable"] = rta3(rts, True)
-        if results["schedulable"]:
-
+        if rts["schedulable"]:
             # Callback
             def private_callback(clock):
                 if callback:
@@ -109,7 +71,13 @@ def run_sim(rts, params, callback=None):
 
             # Create SimSo configuration and model.
             cfg = create_configuration(rts, params["slack_classes"], params["instance_cnt"])
-            model = create_model(cfg, params["slack_classes"], params["instance_cnt"], private_callback)
+
+            # Creates a SimSo model from the provided SimSo configuration.
+            model = Model(cfg, callback)
+            # Add the slack methods to evaluate.
+            model.scheduler.data["slack_methods"] = params["slack_classes"]
+            # Number of instances to record.
+            model.scheduler.data["instance_count"] = params["instance_cnt"]
 
             # Run the simulation.
             model.run_model()

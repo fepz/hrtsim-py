@@ -27,6 +27,10 @@ class SingleSimulationGui(Toplevel):
         self.selectedRts = Entry(self, width=10)
         self.loadSelectedRts = Button(self, text="Load RTS", command=self.load_table)
 
+        self.schedulableLbl= Label(self, text="Schedulable: ?")
+        self.fuLbl = Label(self, text="FU: ?")
+        self.lcmLbl = Label(self, text="LCM: ?")
+
         self.schedulerLbl = Label(self, text="Scheduler")
         self.schedulerSelected = None
         self.schedulerComboBox = Combobox(self, textvariable=self.schedulerSelected)
@@ -89,43 +93,50 @@ class SingleSimulationGui(Toplevel):
         self.rowconfigure(2, weight=0)
         self.rowconfigure(3, weight=0)
         self.rowconfigure(4, weight=0)
-        self.rowconfigure(5, weight=1)
-        self.rowconfigure(6, weight=1)
+        self.rowconfigure(5, weight=0)
+        self.rowconfigure(6, weight=0)
         self.rowconfigure(7, weight=0)
+        self.rowconfigure(8, weight=1)
+        self.rowconfigure(9, weight=1)
+        self.rowconfigure(10, weight=0)
         self.columnconfigure(1, weight=1)
 
         self.openFile.grid(column=0, row=0, sticky="w")
         self.selectedFileLbl.grid(column=1, row=0, sticky="w")
         self.selectedRts.grid(column=2, row=0, sticky="e")
         self.loadSelectedRts.grid(column=3, row=0, sticky="e")
-        self.rtsViewFrame.grid(column=0, row=1, columnspan=4, rowspan=5, sticky="nesw")
+        self.rtsViewFrame.grid(column=0, row=1, columnspan=4, rowspan=7, sticky="nesw")
         self.treeview.pack(side=LEFT, fill=BOTH, expand=1)
         self.rtsViewScrollbar.pack(side=RIGHT, fill=Y)
-        self.schedulerLbl.grid(column=4, row=1, sticky="e")
-        self.schedulerComboBox.grid(column=5, row=1)
-        self.slackLbl.grid(column=4, row=2, sticky="e")
-        self.slackComboBox.grid(column=5, row=2)
-        self.wcetLbl.grid(column=4, row=3, sticky="e")
-        self.wcetComboBox.grid(column=5, row=3)
-        self.instanceCountLbl.grid(column=4, row=4, sticky="e")
-        self.instanceCount.grid(column=5, row=4, sticky="w")
-        self.resultsFrame.grid(column=0, row=6, columnspan=4, rowspan=4, sticky="nesw")
+        self.schedulableLbl.grid(column=4, row=1, columnspan=2, sticky="e")
+        self.fuLbl.grid(column=4, row=2, columnspan=2, sticky="e")
+        self.lcmLbl.grid(column=4, row=3, columnspan=2, sticky="e")
+        self.schedulerLbl.grid(column=4, row=4, sticky="e")
+        self.schedulerComboBox.grid(column=5, row=4)
+        self.slackLbl.grid(column=4, row=5, sticky="e")
+        self.slackComboBox.grid(column=5, row=5)
+        self.wcetLbl.grid(column=4, row=6, sticky="e")
+        self.wcetComboBox.grid(column=5, row=6)
+        self.instanceCountLbl.grid(column=4, row=7, sticky="e")
+        self.instanceCount.grid(column=5, row=7, sticky="w")
+        self.resultsFrame.grid(column=0, row=8, columnspan=4, rowspan=4, sticky="nesw")
         self.resultsTextBox.pack(side=LEFT, fill=BOTH, expand=1)
         self.resultsScrollbar.pack(side=RIGHT, fill=Y)
-        self.runSimulationButton.grid(column=5, row=6, sticky="se")
-        self.progressBar.grid(column=4, row=7, columnspan=2, sticky="sew")
+        self.runSimulationButton.grid(column=5, row=9, sticky="se")
+        self.progressBar.grid(column=4, row=10, columnspan=2, sticky="sew")
 
     def load_table(self):
         try:
             self.rts = load_from_xml(self.selectedFile, int(self.selectedRts.get()))
-            # Verify that the task-set is schedulable
-            rta3(self.rts, True)
             self.treeview.delete(*self.treeview.get_children())
-            for task_id, task in enumerate(self.rts, 1):
+            for task_id, task in enumerate(self.rts["tasks"], 1):
                 self.treeview.insert("", task_id, text=str(task["nro"]), values=(task["C"], task["BC"], task["AC"],
                                                                                  task["T"], task["D"], task["B"],
                                                                                  task["J"], task["Of"], task["Co"],
-                                                                                 task["wcrt"]))
+                                                                                 task["R"]))
+            self.schedulableLbl["text"] = "Schedulable: {0}".format(self.rts["schedulable"])
+            self.fuLbl["text"] = "FU: {:.2%}".format(self.rts["fu"])
+            self.lcmLbl["text"] = "LCM: {:.5E}".format(self.rts["lcm"])
         except ValueError:
             messagebox.showerror("Load RTS", "Invalid RTS number.")
         except TypeError:
@@ -154,6 +165,7 @@ class SingleSimulationGui(Toplevel):
 
             # Reset progress bar.
             self.progressBar["value"] = 0
+            self.progressBar.update()
 
             def callback(r):
                 self.progressBar["value"] += r
