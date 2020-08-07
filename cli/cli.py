@@ -87,11 +87,11 @@ def run_multiple_simulation(rts_list, args):
     results = []
 
     with tqdm(total=len(rts_list), ascii=True, desc="Simulating...") as progress:
-        def future_process_result(f):
-            progress.update()
-            results.append(f.result())
-
         with ProcessPoolExecutor() as executor:
+            def future_process_result(f):
+                progress.update()
+                results.append(f.result())
+
             for rts_id in rts_list:
                 future = executor.submit(run_sim, load_from_xml(args.file, rts_id), params, None)
                 future.add_done_callback(future_process_result)
