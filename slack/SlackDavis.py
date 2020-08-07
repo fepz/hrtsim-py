@@ -1,20 +1,31 @@
 import math
 
-
 def get_slack(task, task_list, tc):
-    from slack.SlackUtils import workload, slackcalc
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    ceil.counter = 0
 
     slack_cc = 0
     slack_calcs = 0
     points = []
 
-    xi = math.ceil(tc / task.period) * task.period
+    xi = ceil(tc / task.period) * task.period
     task.data["ss"]["di"] = xi + task.deadline
     slack_cc += 1
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
-        return task.data["ss"]["di"] - tc - task.data["R"], task.data["ss"]["di"], slack_cc, 0  # , []
+        return task.data["ss"]["di"] - tc - task.data["R"], task.data["ss"]["di"], ceil.counter, 0  # , []
 
     # sort the task list by period (RM)
     tl = sorted(task_list, key=lambda x: x.period)
@@ -32,13 +43,13 @@ def get_slack(task, task_list, tc):
         slack_cc += len(htasks)
 
         for htask in htasks:
-            xi1 = math.ceil(tc / htask.period) * htask.period - tc
+            xi1 = ceil(tc / htask.period) * htask.period - tc
             xii = wdavis - xi1
             if xii <= 0:
                 techo = 0
             else:
                 slack_cc += 1
-                techo = math.ceil(xii / htask.period)
+                techo = ceil(xii / htask.period)
                 sum = sum + htask.wcet * techo
 
         wdavis1 = kdavis + sum
@@ -51,10 +62,10 @@ def get_slack(task, task_list, tc):
             else:
                 for htask in htasks:
                     slack_cc += 2
-                    vi1 = math.ceil((wdavis - xi - tc) / htask.period)
+                    vi1 = ceil((wdavis - xi - tc) / htask.period)
                     if vi1 < 0:
                         vi1 = 0
-                    xi1 = math.ceil(tc / htask.period) * htask.period - tc
+                    xi1 = ceil(tc / htask.period) * htask.period - tc
                     vi = vi1 * htask.period + xi1 - wdavis
                     if vi < vimin:
                         vimin = vi
@@ -71,4 +82,4 @@ def get_slack(task, task_list, tc):
                 if wdavis1 == wdavis:
                     wdavis1 += e
 
-    return kdavis - 1, 0, slack_cc, slack_calcs  # , slack_points
+    return kdavis - 1, 0, ceil.counter, slack_calcs  # , slack_points

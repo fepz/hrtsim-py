@@ -1,20 +1,47 @@
 import math
 
-
 def get_slack(task, task_list, tc):
-    from slack.SlackUtils import workload, slackcalc
+
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    @cc_counter
+    def floor(v):
+        return math.floor(v)
+
+    def slackcalc(task_list, tc, t, wc):
+        w = 0
+        for task in task_list:
+            b = task.data["ss"]["Fixed2"]["b"]
+            if (t > b) or (t <= (b - task.period)):
+                a_t = ceil(t / task.period)
+                task.data["ss"]["Fixed2"]["a"] = a_t * task.wcet
+                task.data["ss"]["Fixed2"]["b"] = a_t * task.period
+            w = w + task.data["ss"]["Fixed2"]["a"]
+        return t - tc - w + wc, w
+
+    ceil.counter = 0
+    floor.counter = 0
 
     slack_cc = 0
     slack_calcs = 0
     points = []
 
-    xi = math.ceil(tc / task.period) * task.period
+    xi = ceil(tc / task.period) * task.period
     task.data["ss"]["di"] = xi + task.deadline
-    slack_cc += 1
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
-        return task.data["ss"]["di"] - tc - task.data["R"], task.data["ss"]["di"], slack_cc, 0  # , []
+        return task.data["ss"]["di"] - tc - task.data["R"], task.data["ss"]["di"], ceil.counter, 0  # , []
 
     # sort the task list by period (RM)
     tl = sorted(task_list, key=lambda x: x.period)
@@ -29,7 +56,7 @@ def get_slack(task, task_list, tc):
     if (htask.data["ss"]["di"] + htask.wcet >= task.data["ss"]["di"]) and (task.data["ss"]["di"] >= htask.data["ss"]["ttma"]):
         tmax = htask.data["ss"]["ttma"]
         kmax = htask.data["ss"]["slack"] - task.wcet
-        return kmax, tmax, slack_cc, 0  # , []
+        return kmax, tmax, ceil.counter, 0  # , []
 
     # theorem 3
     intervalo = xi + (task.deadline - task.data["R"]) + task.wcet
@@ -41,12 +68,13 @@ def get_slack(task, task_list, tc):
         kmax = htask.data["ss"]["slack"] - task.wcet
 
     # workload at t
-    wc, workload_cc = workload(tl[:task.identifier], tc)
-    slack_cc += workload_cc
+    wc = 0
+    for task in tl[:task.identifier]:
+        a = floor(tc / task.deadline)
+        wc += (a * task.wcet) + (task.job.actual_computation_time if task.job else 0)
 
     # calculate slack in deadline
-    k2, slackcalc_cc, w = slackcalc("Fixed2", tl[:task.identifier], tc, task.data["ss"]["di"], wc)
-    slack_cc += slackcalc_cc
+    k2, w = slackcalc(tl[:task.identifier], tc, task.data["ss"]["di"], wc)
     slack_calcs += 1
     points = [task.data["ss"]["di"]]
 
@@ -67,8 +95,7 @@ def get_slack(task, task_list, tc):
         slack_cc += 1
 
         while ii < task.data["ss"]["di"]:
-            k2, slackcalc_cc, w = slackcalc("Fixed2", tl[:task.identifier], tc, ii, wc)
-            slack_cc += slackcalc_cc
+            k2, w = slackcalc(tl[:task.identifier], tc, ii, wc)
             slack_calcs += 1
             points.append(ii)
             slack_points.append((ii, k2, w))
@@ -85,4 +112,4 @@ def get_slack(task, task_list, tc):
             # next arrival
             ii += htask.period
 
-    return kmax, tmax, slack_cc, slack_calcs  # , slack_points
+    return kmax, tmax, ceil.counter + floor.counter, slack_calcs  # , slack_points
