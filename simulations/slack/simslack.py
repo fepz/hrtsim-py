@@ -3,9 +3,7 @@ from tabulate import tabulate
 from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
-from rta.rta3 import rta3
 from slack.SlackExceptions import NegativeSlackException
-from slack.SlackUtils import get_slack_methods
 
 
 def create_configuration(rts, slack_methods, instance_count):
@@ -73,7 +71,7 @@ def run_sim(rts, params, callback=None):
             cfg = create_configuration(rts, params["slack_classes"], params["instance_cnt"])
 
             # Creates a SimSo model from the provided SimSo configuration.
-            model = Model(cfg, callback)
+            model = Model(cfg, private_callback)
             # Add the slack methods to evaluate.
             model.scheduler.data["slack_methods"] = params["slack_classes"]
             # Number of instances to record.

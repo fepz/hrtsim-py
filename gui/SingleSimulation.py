@@ -86,7 +86,6 @@ class SingleSimulationGui(Toplevel):
         self.runSimulationButton = Button(self, text="Run simulation", command=self.run_simulation)
 
         self.progressBar = Progressbar(self, orient=HORIZONTAL, length=100, mode='determinate')
-        self.progress_step = 0
 
         self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=0)
