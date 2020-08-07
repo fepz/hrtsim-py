@@ -28,10 +28,23 @@ def run_simulation(args):
         run_multiple_simulation(rts_list, args)
 
 
+def print_tasks(tasks):
+    """
+    Print the task set into stdout without the ss field. This should use some form of filter instead of deepcopy.
+    :param tasks: rts
+    :return: None
+    """
+    import copy
+    tasks_copy = copy.deepcopy(tasks)
+    for task in tasks_copy:
+        del task["ss"]  # dirty as hell
+    print("Tasks:")
+    print(tabulate(tasks_copy, tablefmt="github", headers="keys"))
+
+
 def run_single_simulation(rts, args):
     """
     Simulate an rts
-    :param rts_id: rts id
     :param rts: task set
     :param args: parameters
     :return: None
@@ -42,8 +55,7 @@ def run_single_simulation(rts, args):
     print("FU: {:.2%}".format(rts["fu"]))
     print("LCM: {:.5E}".format(rts["lcm"]))
     print("Instances: {0}".format(args.instance_count))
-    print("Tasks:")
-    print(tabulate(rts["tasks"], tablefmt="github", headers="keys"))
+    print_tasks(rts["tasks"])
 
     params = {
         "instance_cnt": args.instance_count,
