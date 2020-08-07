@@ -2,12 +2,13 @@ import math
 
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
 
-from slack import SlackFixed, SlackFixed15
+from slack import SlackFixed, SlackFixed15, SlackDavis
 
 
 def get_slack_methods():
     slack_methods = {"Fixed2": SlackFixed.get_slack,
-                     "Fixed15": SlackFixed15.get_slack}
+                     "Fixed15": SlackFixed15.get_slack,
+                     "Davis": SlackDavis.get_slack}
     return slack_methods
 
 
@@ -62,8 +63,8 @@ def multiple_slack_calc(tc, job, tasks, slack_methods):
     ss_ref = slack_results[0][1]
     ttma_ref = slack_results[0][2]
     for result in slack_results:
-        if result[1] != ss_ref or result[2] != ttma_ref:
-            raise DifferentSlackException(tc, job, result[0])
+        if result[1] != ss_ref or (result[2] > 0 and result[2] != ttma_ref):
+            raise DifferentSlackException(tc, job, result[0], slack_results)
 
     # return slack and ttma
     return ss_ref, ttma_ref, slack_results

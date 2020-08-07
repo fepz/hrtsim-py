@@ -3,7 +3,7 @@ from tabulate import tabulate
 from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
-from slack.SlackExceptions import NegativeSlackException
+from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
 
 
 def create_configuration(rts, slack_methods, instance_count):
@@ -87,7 +87,7 @@ def run_sim(rts, params, callback=None):
                     slack_method_results.append(task.data["ss"][slack_method]["cc"])
                 results["cc"][slack_method] = np.array(slack_method_results)
 
-    except NegativeSlackException as exc:
+    except (NegativeSlackException, DifferentSlackException) as exc:
         results["error"] = True
         results["error_msg"] = str(exc)
 
