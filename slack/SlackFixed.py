@@ -32,7 +32,6 @@ def get_slack(task, task_list, tc):
     ceil.counter = 0
     floor.counter = 0
 
-    slack_cc = 0
     slack_calcs = 0
     points = []
 
@@ -92,7 +91,6 @@ def get_slack(task, task_list, tc):
     # calculate slack at arrival time of higher priority tasks
     for htask in tl[:(task.identifier - 1)]:
         ii = math.ceil(intervalo / htask.period) * htask.period
-        slack_cc += 1
 
         while ii < task.data["ss"]["di"]:
             k2, w = slackcalc(tl[:task.identifier], tc, ii, wc)

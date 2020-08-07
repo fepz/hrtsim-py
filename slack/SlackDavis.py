@@ -15,13 +15,11 @@ def get_slack(task, task_list, tc):
 
     ceil.counter = 0
 
-    slack_cc = 0
     slack_calcs = 0
     points = []
 
     xi = ceil(tc / task.period) * task.period
     task.data["ss"]["di"] = xi + task.deadline
-    slack_cc += 1
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
@@ -40,15 +38,12 @@ def get_slack(task, task_list, tc):
         wdavis = wdavis1
         sum = 0
 
-        slack_cc += len(htasks)
-
         for htask in htasks:
             xi1 = ceil(tc / htask.period) * htask.period - tc
             xii = wdavis - xi1
             if xii <= 0:
                 techo = 0
             else:
-                slack_cc += 1
                 techo = ceil(xii / htask.period)
                 sum = sum + htask.wcet * techo
 
@@ -61,7 +56,6 @@ def get_slack(task, task_list, tc):
                 vimin = 0
             else:
                 for htask in htasks:
-                    slack_cc += 2
                     vi1 = ceil((wdavis - xi - tc) / htask.period)
                     if vi1 < 0:
                         vi1 = 0
