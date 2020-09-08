@@ -1,7 +1,7 @@
 
 
 class SlackEvent:
-    CALC_SLACK = 1
+    CALC_SLACK = 10
 
     count = 0
 

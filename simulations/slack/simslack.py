@@ -37,7 +37,7 @@ def create_configuration(rts, slack_methods, instance_count):
 
     # Add a scheduler.
     configuration.scheduler_info.filename = "schedulers/slack/RM_mono_slack.py"
-    # configuration.scheduler_info.clas = "simso.schedulers.RM"
+    #configuration.scheduler_info.clas = "simso.schedulers.RM"
 
     # Check the config before trying to run it.
     configuration.check_all()
@@ -86,6 +86,9 @@ def run_sim(rts, params, callback=None):
                 for task in model.task_list:
                     slack_method_results.append(task.data["ss"][slack_method]["cc"])
                 results["cc"][slack_method] = np.array(slack_method_results)
+
+            # Add model
+            results["model"] = model
 
     except (NegativeSlackException, DifferentSlackException) as exc:
         results["error"] = True

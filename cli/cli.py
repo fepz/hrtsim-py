@@ -87,6 +87,14 @@ def run_single_simulation(rts, args):
         results, error_cnt, not_schedulable_cnt, error_list = process_results([sim_result], "mean_std")
         print_results(results)
 
+    if args.gantt:
+        from gui.gantt import create_gantt_window
+        from PyQt5.QtWidgets import QApplication
+        import sys
+        app = QApplication(sys.argv)
+        ex = create_gantt_window(sim_result["model"])
+        return app.exec_()
+
 
 def run_multiple_simulation(rts_list, args):
     """

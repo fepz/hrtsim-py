@@ -12,6 +12,7 @@ def get_args():
     parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
     parser.add_argument("--silent", action="store_true", help="Suppress output.")
     parser.add_argument("--multiple", action="store_true", help="Multiple RTS simulation.")
+    parser.add_argument("--gantt", action="store_true", help="Show gantt of scheduling.")
     return parser.parse_args()
 
 
