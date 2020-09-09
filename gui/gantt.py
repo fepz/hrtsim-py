@@ -332,6 +332,9 @@ class GanttCanvas(QWidget):
                 imageFile += ".png"
             self._image[0].save(str(imageFile))
 
+    def saveImgToFile(self, file):
+        self._image[0].save(file)
+
     def zoomDown(self):
         self._vwidth /= 1.2
         if self._vwidth < 200:

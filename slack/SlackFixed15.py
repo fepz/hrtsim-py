@@ -43,7 +43,7 @@ def get_slack(task, task_list, tc):
     # sort the task list by period (RM)
     tl = sorted(task_list, key=lambda x: x.period)
 
-    kmax = 0
+    kmax = task.data["k"]
     tmax = task.data["ss"]["di"]
 
     # immediate higher priority task
@@ -71,9 +71,8 @@ def get_slack(task, task_list, tc):
         wc += (a * task.wcet) + (task.job.actual_computation_time if task.job else 0)
 
     # New theorem.
-    tmp = task.data["ss"]["di"] - task.period
-    if tmp > intervalo:
-        intervalo = tmp
+    if intervalo < task.data["ss"]["di"] - htask.period + htask.wcet:
+        intervalo = task.data["ss"]["di"] - htask.period + htask.wcet
 
     # calculate slack in deadline
     k2, w = slackcalc(tl[:task.identifier], tc, task.data["ss"]["di"], wc)
@@ -95,11 +94,19 @@ def get_slack(task, task_list, tc):
     for htask in tl[:(task.identifier - 1)]:
         ii = ceil(intervalo / htask.period) * htask.period
 
+        htask_slack_points = []
+
         while ii < task.data["ss"]["di"]:
             k2, w = slackcalc(tl[:task.identifier], tc, ii, wc)
             slack_calcs += 1
+
+            #if len(htask_slack_points) > 0:
+            #    if k2 <= htask_slack_points[-1]:
+            #        break
+
             points.append(ii)
-            slack_points.append((ii, k2, w))
+            htask_slack_points.append(k2)
+            slack_points.append((ii, k2, w, htask.identifier))
 
             # update kmax and tmax if a greater slack value was found
             if k2 > kmax:
@@ -113,4 +120,12 @@ def get_slack(task, task_list, tc):
             # next arrival
             ii += htask.period
 
+    #if task.data["ss"]["di"] - htask.period + htask.wcet < tmax <= task.data["ss"]["di"]:
+    #    print("yes")
+    #else:
+    #    print("no")
+
+    result = {"smax": kmax, "tmax": tmax, "inv": ceil.counter + floor.counter, "slack_calcs": slack_calcs}
+
     return kmax, tmax, ceil.counter + floor.counter, slack_calcs  # , slack_points
+    #return result

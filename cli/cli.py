@@ -87,12 +87,24 @@ def run_single_simulation(rts, args):
         results, error_cnt, not_schedulable_cnt, error_list = process_results([sim_result], "mean_std")
         print_results(results)
 
-    if args.gantt:
+    if args.gantt_gui:
         from gui.gantt import create_gantt_window
         from PyQt5.QtWidgets import QApplication
         import sys
         app = QApplication(sys.argv)
         ex = create_gantt_window(sim_result["model"])
+        return app.exec_()
+
+    if args.gantt:
+        from gui.gantt import GanttCanvas
+        from PyQt5.QtCore import QCoreApplication
+        import sys
+        elements = []
+        elements.extend(sim_result["model"].processors)
+        elements.extend(sim_result["model"].task_list)
+        app = QCoreApplication(sys.argv)
+        canvas = GanttCanvas(sim_result["model"], (0, sim_result["model"].duration // sim_result["model"].cycles_per_ms,  elements))
+        canvas.saveImgToFile("simulation.png")
         return app.exec_()
 
 

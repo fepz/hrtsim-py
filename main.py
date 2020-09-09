@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, FileType
 
 
 def get_args():
@@ -6,6 +6,7 @@ def get_args():
     parser = ArgumentParser()
     parser.add_argument("--gui", action='store_true', help="Use GUI.")
     parser.add_argument("--file", type=str, help="File with RTS.")
+    parser.add_argument("--json-file", type=FileType('r'), help="JSON file with RTS or RTS params.")
     parser.add_argument("--rts", type=str, help="RTS number inside file.")
     parser.add_argument("--scheduler", nargs=1, type=str, help="Scheduling algorithm")
     parser.add_argument("--instance-count", type=int, help="Number of task instances to simulate.")
@@ -13,6 +14,7 @@ def get_args():
     parser.add_argument("--silent", action="store_true", help="Suppress output.")
     parser.add_argument("--multiple", action="store_true", help="Multiple RTS simulation.")
     parser.add_argument("--gantt", action="store_true", help="Show gantt of scheduling.")
+    parser.add_argument("--gantt-gui", action="store_true", help="Show gantt of scheduling.")
     return parser.parse_args()
 
 
