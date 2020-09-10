@@ -1,3 +1,4 @@
+from typing import TextIO
 import xml.etree.cElementTree as et
 import math
 
@@ -11,7 +12,7 @@ except ImportError:
         return a
 
 
-def lcm(rts):
+def lcm(rts: list) -> int:
     """ Calcula el hiperperiodo de rts """
     periods = []
     for task in rts:
@@ -19,7 +20,7 @@ def lcm(rts):
     return reduce(lambda x, y: (x * y) // gcd(x, y), periods, 1)
 
 
-def calc_fu(rts):
+def calc_fu(rts: list) -> float:
     """ Calcula el FU del rts """
     fu = 0
     for task in rts:
@@ -27,12 +28,12 @@ def calc_fu(rts):
     return fu
 
 
-def cota_liu(rts):
+def cota_liu(rts: list) -> float:
     """ Calcula planificabilidad por la cota de Liu """
     return len(rts) * (pow(2, 1.0 / float(len(rts))) - 1)
 
 
-def cota_bini(rts):
+def cota_bini(rts: list) -> float:
     """ Calcula planificabilidad por la cota de Bini """
     cota = 1
     for task in rts:
@@ -40,7 +41,7 @@ def cota_bini(rts):
     return cota
 
 
-def joseph_wcrt(rts):
+def joseph_wcrt(rts: list):
     """ Calcula el WCRT de cada tarea del str y evalua la planificabilidad """
     schedulable = True
     rts[0]["R"] = rts[0]["C"]
@@ -62,7 +63,7 @@ def joseph_wcrt(rts):
     return schedulable
 
 
-def first_free_slot(rts):
+def first_free_slot(rts: list):
     """ Calcula primer instante que contiene un slot libre por subsistema """
     free = [0] * len(rts)
     for i, task in enumerate(rts, 0):
@@ -80,7 +81,7 @@ def first_free_slot(rts):
     return free
 
 
-def calculate_k(rts):
+def calculate_k(rts: list) -> None:
     """ Calcula el K de cada tarea (máximo retraso en el instante critico) """
     rts[0]["k"] = rts[0]["T"] - rts[0]["C"]
 
@@ -103,9 +104,33 @@ def calculate_k(rts):
         task["k"] = k - 1
 
 
-def load_from_xml(file, rts_id, start=0, limit=10000):
+def analyze_rts(rts: dict):
+    """
+    Analyze the RTS and complete fields
+    :param rts: rts
+    :return: None
+    """
+    rts["fu"] = calc_fu(rts["tasks"])
+    rts["lcm"] = lcm(rts["tasks"])
+    rts["liu"] = cota_liu(rts["tasks"])
+    rts["bini"] = cota_bini(rts["tasks"])
+    rts["schedulable"] = joseph_wcrt(rts["tasks"])
+    calculate_k(rts["tasks"])
+
+    # Add the required fields for slack stealing simulation.
+    for task in rts["tasks"]:
+        task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
+
+
+def load_from_xml(file: TextIO, rts_id: int, start=0, limit=10000) -> list:
+    """
+    Retrieve the specified rts from a xml file
+    :param file: file object handle
+    :param rts_id: rts id
+    :return: rts
+    """
     # iterator over the xml file
-    context = et.iterparse(file, events=('start', 'end',))
+    context = et.iterparse(file.name, events=('start', 'end',))
     context = iter(context)
     event, root = next(context)
 
@@ -142,16 +167,56 @@ def load_from_xml(file, rts_id, start=0, limit=10000):
     del context
 
     if rts_found:
-        rts["fu"] = calc_fu(rts["tasks"])
-        rts["lcm"] = lcm(rts["tasks"])
-        rts["liu"] = cota_liu(rts["tasks"])
-        rts["bini"] = cota_bini(rts["tasks"])
-        rts["schedulable"] = joseph_wcrt(rts["tasks"])
-        calculate_k(rts["tasks"])
-
-        # Add the required fields for slack stealing simulation.
-        for task in rts["tasks"]:
-            task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0,
-                          'ii': 0}
+        analyze_rts(rts)
 
     return rts
+
+
+def load_from_json(file: TextIO, ids: list) -> list:
+    """
+    Retrieve the specified rts from a json file
+    :param file: file object handle
+    :param ids: list of rts ids
+    :return: list of rts
+    """
+    import json
+    rts_in_file = json.load(file)
+    rts_list = []
+
+    for id, tasks in [(id, rts_in_file[id]) for id in ids]:
+        rts = dict()
+        rts["id"] = id
+        rts["tasks"] = []
+
+        # Add expected keys
+        if type(tasks) is list:
+            for nro, task in enumerate(tasks, 1):
+                if "nro" not in task:
+                    task["nro"] = nro
+                if "C" not in task:
+                    task["C"] = task.pop("c")
+                if "T" not in task:
+                    task["T"] = task.pop("t")
+                if "D" not in task:
+                    task["D"] = task.pop("d", task["T"])
+                rts["tasks"].append(task)
+
+        analyze_rts(rts)
+        rts_list.append(rts)
+
+    return rts_list
+
+
+def load_from_file(file: TextIO, ids: list) -> list:
+    """
+    Retrieve the specified rts from file.
+    :param file: an object file
+    :param ids: list of rts ids
+    :return: a list with the specified rts
+    """
+    import os
+    file_type = os.path.splitext(file.name)[1]
+    if file_type == '.xml':
+        return [load_from_xml(file, id) for id in ids]
+    if file_type == '.json':
+        return load_from_json(file, ids)

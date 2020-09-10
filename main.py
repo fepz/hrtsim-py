@@ -5,8 +5,7 @@ def get_args():
     """ Command line arguments """
     parser = ArgumentParser()
     parser.add_argument("--gui", action='store_true', help="Use GUI.")
-    parser.add_argument("--file", type=str, help="File with RTS.")
-    parser.add_argument("--json-file", type=FileType('r'), help="JSON file with RTS or RTS params.")
+    parser.add_argument("--file", type=FileType('r'), help="File with RTS.")
     parser.add_argument("--rts", type=str, help="RTS number inside file.")
     parser.add_argument("--scheduler", nargs=1, type=str, help="Scheduling algorithm")
     parser.add_argument("--instance-count", type=int, help="Number of task instances to simulate.")

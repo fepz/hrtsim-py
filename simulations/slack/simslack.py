@@ -88,7 +88,10 @@ def run_sim(rts, params, callback=None):
                 results["cc"][slack_method] = np.array(slack_method_results)
 
             # Add model
-            results["model"] = model
+            #results["model"] = model
+        else:
+            results["error"] = True
+            results["error_msg"] = "No schedulable."
 
     except (NegativeSlackException, DifferentSlackException) as exc:
         results["error"] = True

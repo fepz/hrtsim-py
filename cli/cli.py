@@ -1,7 +1,7 @@
 from simulations.slack.simslack import run_sim, print_results, process_results
 from concurrent.futures import ProcessPoolExecutor
 from tqdm.auto import tqdm
-from resources.xml import load_from_xml
+from resources.xml import load_from_file
 from tabulate import tabulate
 
 
@@ -28,7 +28,7 @@ def run_simulation(args):
 
     rts_list = mixrange(args.rts)
     if len(rts_list) == 1:
-        run_single_simulation(load_from_xml(args.file, rts_list[0]), args)
+        run_single_simulation(load_from_file(args.file, rts_list)[0], args)
     else:
         run_multiple_simulation(rts_list, args)
 
@@ -55,7 +55,7 @@ def run_single_simulation(rts, args):
     :return: None
     """
 
-    print("File: {0}".format(args.file))
+    print("File: {0}".format(args.file.name))
     print("RTS: {0}".format(rts["id"]))
     print("FU: {:.2%}".format(rts["fu"]))
     print("LCM: {:.5E}".format(rts["lcm"]))
@@ -87,50 +87,50 @@ def run_single_simulation(rts, args):
         results, error_cnt, not_schedulable_cnt, error_list = process_results([sim_result], "mean_std")
         print_results(results)
 
-    if args.gantt_gui:
-        from gui.gantt import create_gantt_window
-        from PyQt5.QtWidgets import QApplication
-        import sys
-        app = QApplication(sys.argv)
-        ex = create_gantt_window(sim_result["model"])
-        return app.exec_()
+        if args.gantt_gui:
+            from gui.gantt import create_gantt_window
+            from PyQt5.QtWidgets import QApplication
+            import sys
+            app = QApplication(sys.argv)
+            ex = create_gantt_window(sim_result["model"])
+            return app.exec_()
 
-    if args.gantt:
-        from gui.gantt import GanttCanvas
-        from PyQt5.QtCore import QCoreApplication
-        import sys
-        elements = []
-        elements.extend(sim_result["model"].processors)
-        elements.extend(sim_result["model"].task_list)
-        app = QCoreApplication(sys.argv)
-        canvas = GanttCanvas(sim_result["model"], (0, sim_result["model"].duration // sim_result["model"].cycles_per_ms,  elements))
-        canvas.saveImgToFile("simulation.png")
-        return app.exec_()
+        if args.gantt:
+            from gui.gantt import GanttCanvas
+            from PyQt5.QtCore import QCoreApplication
+            import sys
+            elements = []
+            elements.extend(sim_result["model"].processors)
+            elements.extend(sim_result["model"].task_list)
+            app = QCoreApplication(sys.argv)
+            canvas = GanttCanvas(sim_result["model"], (0, sim_result["model"].duration // sim_result["model"].cycles_per_ms,  elements))
+            canvas.saveImgToFile("simulation.png")
+            return app.exec_()
 
 
-def run_multiple_simulation(rts_list, args):
+def run_multiple_simulation(rts_ids_list: list, args):
     """
     Run multiple simulations in parallelel.
-    :param rts_list:
+    :param rts_ids_list:
     :param args:
     :return:
     """
-    print("File: {0}".format(args.file))
-    print("# of RTS to simulate: {0}".format(len(rts_list)))
+    print("File: {0}".format(args.file.name))
+    print("# of RTS to simulate: {0}".format(len(rts_ids_list)))
     print("# of instances per task: {0}".format(args.instance_count))
 
     params = {"instance_cnt": args.instance_count, "slack_classes": args.ss_methods}
 
     results = []
 
-    with tqdm(total=len(rts_list), ascii=True, desc="Simulating...") as progress:
+    with tqdm(total=len(rts_ids_list), ascii=True, desc="Simulating...") as progress:
         with ProcessPoolExecutor() as executor:
             def future_process_result(f):
                 progress.update()
                 results.append(f.result())
 
-            for rts_id in rts_list:
-                future = executor.submit(run_sim, load_from_xml(args.file, rts_id), params, None)
+            for rts in load_from_file(args.file, rts_ids_list):
+                future = executor.submit(run_sim, rts, params, None)
                 future.add_done_callback(future_process_result)
 
     results, error_cnt, not_schedulable_cnt, error_list = process_results(results, "mean_std")
