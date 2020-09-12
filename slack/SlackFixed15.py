@@ -100,10 +100,6 @@ def get_slack(task, task_list, tc):
             k2, w = slackcalc(tl[:task.identifier], tc, ii, wc)
             slack_calcs += 1
 
-            #if len(htask_slack_points) > 0:
-            #    if k2 <= htask_slack_points[-1]:
-            #        break
-
             points.append(ii)
             htask_slack_points.append(k2)
             slack_points.append((ii, k2, w, htask.identifier))
@@ -120,12 +116,6 @@ def get_slack(task, task_list, tc):
             # next arrival
             ii += htask.period
 
-    #if task.data["ss"]["di"] - htask.period + htask.wcet < tmax <= task.data["ss"]["di"]:
-    #    print("yes")
-    #else:
-    #    print("no")
-
     result = {"smax": kmax, "tmax": tmax, "inv": ceil.counter + floor.counter, "slack_calcs": slack_calcs}
 
     return kmax, tmax, ceil.counter + floor.counter, slack_calcs  # , slack_points
-    #return result

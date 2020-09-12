@@ -21,9 +21,12 @@ def get_slack(task, task_list, tc):
     def slackcalc(task_list, tc, t, wc):
         w = 0
         for task in task_list:
-            a_t = ceil(t / task.period)
-            task.data["ss"]["Fixed"]["a"] = a_t * task.wcet
-            w = w + task.data["ss"]["Fixed"]["a"]
+            b = task.data["ss"]["Fixed2"]["b"]
+            if (t > b) or (t <= (b - task.period)):
+                a_t = ceil(t / task.period)
+                task.data["ss"]["Fixed2"]["a"] = a_t * task.wcet
+                task.data["ss"]["Fixed2"]["b"] = a_t * task.period
+            w = w + task.data["ss"]["Fixed2"]["a"]
         return t - tc - w + wc, w
 
     ceil.counter = 0

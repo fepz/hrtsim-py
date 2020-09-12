@@ -2,12 +2,15 @@ import math
 
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
 
-from slack import SlackFixed, SlackFixed15, SlackDavis
+from slack import SlackFixed, SlackFixed15, SlackDavis, SlackFixed2, SlackHet, SlackFast
 
 
 def get_slack_methods():
-    slack_methods = {"Fixed2": SlackFixed.get_slack,
+    slack_methods = {"Fixed2": SlackFixed2.get_slack,
                      "Fixed15": SlackFixed15.get_slack,
+                     "Fixed": SlackFixed.get_slack,
+                     "SlackHet": SlackHet.get_slack,
+                     "Fast": SlackFast.get_slack,
                      "Davis": SlackDavis.get_slack}
     return slack_methods
 
