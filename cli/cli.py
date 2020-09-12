@@ -133,6 +133,9 @@ def run_multiple_simulation(rts_ids_list: list, args):
                 future = executor.submit(run_sim, rts, params, None)
                 future.add_done_callback(future_process_result)
 
-    results, error_cnt, not_schedulable_cnt, error_list = process_results(results, "mean_std")
-    print_results(results)
+    results, error_cnt, not_schedulable_cnt, error_list = process_results(results, "mean_only")
+    if results:
+        print_results(results)
+    else:
+        print("No schedulable systems!")
 
