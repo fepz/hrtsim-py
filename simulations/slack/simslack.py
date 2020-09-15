@@ -5,6 +5,31 @@ from simso.configuration import Configuration
 from simso.core import Model
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
 
+class SinkLogger(object):
+    """
+    Simple logger. Every message is logged with its date.
+    """
+    def __init__(self, sim):
+        return
+
+    def log(self, msg, kernel=False):
+        return
+
+    @property
+    def logs(self):
+        return
+
+
+class SinkMonitor(list):
+    def __init__(self):
+        return
+
+    def observe(self, y,t = None):
+        return
+
+    def __len__(self):
+        return 0
+
 
 def create_configuration(rts, slack_methods, instance_count):
     """
@@ -45,7 +70,7 @@ def create_configuration(rts, slack_methods, instance_count):
     return configuration
 
 
-def run_sim(rts, params, callback=None):
+def run_sim(rts, params, callback=None, sink=True, retrieve_model=False):
     """
 
     :param rts:
@@ -53,11 +78,12 @@ def run_sim(rts, params, callback=None):
     :param callback:
     :return:
     """
-    results = dict()
-    results["rts_id"] = rts["id"]
-    results["schedulable"] = rts["schedulable"]
-    results["error"] = False
-    results["cc"] = dict()
+    results = {
+        "rts_id": rts["id"],
+        "schedulable": rts["schedulable"],
+        "error": False,
+        "cc": {}
+    }
 
     try:
         if rts["schedulable"]:
@@ -77,6 +103,14 @@ def run_sim(rts, params, callback=None):
             # Number of instances to record.
             model.scheduler.data["instance_count"] = params["instance_cnt"]
 
+            # Discard trace information to reduce memory footprint
+            if sink:
+                model._logger = SinkLogger(model)
+                for task in model.scheduler.task_list:
+                    task._monitor = SinkMonitor()
+                for cpu in model.scheduler.processors:
+                    cpu.monitor = SinkMonitor()
+
             # Run the simulation.
             model.run_model()
 
@@ -88,7 +122,8 @@ def run_sim(rts, params, callback=None):
                 results["cc"][slack_method] = np.array(slack_method_results)
 
             # Add model
-            #results["model"] = model
+            if retrieve_model:
+                results["model"] = model
         else:
             results["error"] = True
             results["error_msg"] = "No schedulable."
