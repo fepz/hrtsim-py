@@ -1,7 +1,7 @@
 from simulations.slack.simslack import run_sim, print_results, process_results
 from concurrent.futures import ProcessPoolExecutor
 from tqdm.auto import tqdm
-from resources.xml import load_from_file
+from resources.xml import get_from_file
 from tabulate import tabulate
 
 
@@ -28,7 +28,7 @@ def run_simulation(args):
 
     rts_list = mixrange(args.rts)
     if len(rts_list) == 1:
-        run_single_simulation(load_from_file(args.file, rts_list)[0], args)
+        run_single_simulation(get_from_file(args.file, rts_list)[0], args)
     else:
         run_multiple_simulation(rts_list, args)
 
@@ -129,7 +129,7 @@ def run_multiple_simulation(rts_ids_list: list, args):
                 progress.update()
                 results.append(f.result())
 
-            for rts in load_from_file(args.file, rts_ids_list):
+            for rts in get_from_file(args.file, rts_ids_list):
                 future = executor.submit(run_sim, rts, params, None)
                 future.add_done_callback(future_process_result)
 

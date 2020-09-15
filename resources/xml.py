@@ -122,57 +122,54 @@ def analyze_rts(rts: dict):
         task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
 
 
-def load_from_xml(file: TextIO, rts_id: int, start=0, limit=10000) -> list:
+def get_from_xml(file: TextIO, rts_id_list: list):
     """
     Retrieve the specified rts from a xml file
     :param file: file object handle
     :param rts_id: rts id
     :return: rts
     """
-    # iterator over the xml file
+    # get an iterable
     context = et.iterparse(file.name, events=('start', 'end',))
+    # turn it into a iterator
     context = iter(context)
+    # get the root element
     event, root = next(context)
-
-    size = int(float(root.get("size")))
-    ntask = int(float(root.get("n")))
 
     current_id, rts, rts_found = 0, dict(), False
 
-    rts["id"] = rts_id
-    rts["tasks"] = []
+    for rts_id in rts_id_list:
+        rts["id"] = rts_id
+        rts["tasks"] = []
 
-    # read the xml, parse task-sets and simulate it
-    for event, elem in context:
-        if elem.tag == 'S':
-            if event == 'start':
-                current_id = int(float(elem.get("count")))
-                if rts_id == current_id:
-                    rts_found = True
-            if event == 'end':
-                if rts_found:
-                    break
-                elem.clear()
-
-        if rts_found:
-            if elem.tag == 'i':
+        # read the xml, parse task-sets and simulate it
+        for event, elem in context:
+            if elem.tag == 'S':
                 if event == 'start':
-                    task = elem.attrib
-                    for k, v in task.items():
-                        task[k] = int(float(v))
-                    rts["tasks"].append(task)
+                    current_id = int(float(elem.get("count")))
+                    if rts_id == current_id:
+                        rts_found = True
+                if event == 'end':
+                    if rts_found:
+                        break
+                    elem.clear()
 
-        root.clear()
+            if rts_found:
+                if elem.tag == 'i':
+                    if event == 'start':
+                        task = elem.attrib
+                        for k, v in task.items():
+                            task[k] = int(float(v))
+                        rts["tasks"].append(task)
 
+            root.clear()
+
+        analyze_rts(rts)
+        yield rts
     del context
 
-    if rts_found:
-        analyze_rts(rts)
 
-    return rts
-
-
-def load_from_json(file: TextIO, ids: list) -> list:
+def get_from_json(file: TextIO, ids: list) -> list:
     """
     Retrieve the specified rts from a json file
     :param file: file object handle
@@ -204,10 +201,10 @@ def load_from_json(file: TextIO, ids: list) -> list:
         analyze_rts(rts)
         rts_list.append(rts)
 
-    return rts_list
+        yield rts
 
 
-def load_from_file(file: TextIO, ids: list) -> list:
+def get_from_file(file: TextIO, ids: list):
     """
     Retrieve the specified rts from file.
     :param file: an object file
@@ -217,6 +214,6 @@ def load_from_file(file: TextIO, ids: list) -> list:
     import os
     file_type = os.path.splitext(file.name)[1]
     if file_type == '.xml':
-        return [load_from_xml(file, id) for id in ids]
+        return get_from_xml(file, ids)
     if file_type == '.json':
-        return load_from_json(file, ids)
+        return get_from_json(file, ids)
