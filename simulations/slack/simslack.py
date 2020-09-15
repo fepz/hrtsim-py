@@ -5,6 +5,7 @@ from simso.configuration import Configuration
 from simso.core import Model
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
 
+
 class SinkLogger(object):
     """
     Simple logger. Every message is logged with its date.
