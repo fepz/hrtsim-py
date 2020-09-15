@@ -1,4 +1,5 @@
 venv/
+pypyvenv/
 .idea/
 *.pyc
 *.swp
