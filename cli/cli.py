@@ -1,4 +1,4 @@
-from simulations.slack.simslack import run_sim, print_results, process_results
+from simulations.slack.simslack import run_sim, print_results, print_summary_of_results, print_means
 from concurrent.futures import ProcessPoolExecutor
 from tqdm.auto import tqdm
 from resources.xml import get_from_file
@@ -28,9 +28,14 @@ def run_simulation(args):
 
     rts_list = mixrange(args.rts)
     if len(rts_list) == 1:
-        run_single_simulation(get_from_file(args.file, rts_list)[0], args)
+        run_single_simulation(next(get_from_file(args.file, rts_list)), args)
     else:
-        run_multiple_simulation(rts_list, args)
+        print("File: {0}".format(args.file.name))
+        print("# of RTS to simulate: {0}".format(len(rts_list)))
+        print("# of instances per task: {0}".format(args.instance_count))
+        result = run_multiple_simulation(rts_list, args)
+        for p in [print_summary_of_results, print_means]:
+            p(result)
 
 
 def print_tasks(tasks):
@@ -68,7 +73,7 @@ def run_single_simulation(rts, args):
     }
 
     with tqdm(total=100, ascii=True, desc="Simulating...") as progress:
-        sim_result = run_sim(rts, params, progress.update)
+        sim_result = run_sim(rts, params, progress.update, sink=False, retrieve_model=True)
         progress.update(progress.total - progress.n)
 
     if sim_result["error"]:
@@ -84,8 +89,7 @@ def run_single_simulation(rts, args):
                 print(tabulate(ss_result, showindex=table_tasks, headers=range(1, args.instance_count + 1),
                                tablefmt="github"))
 
-        results, error_cnt, not_schedulable_cnt, error_list = process_results([sim_result], "mean_std")
-        print_results(results)
+        print_means([sim_result])
 
         if args.gantt_gui:
             from gui.gantt import create_gantt_window
@@ -95,31 +99,15 @@ def run_single_simulation(rts, args):
             ex = create_gantt_window(sim_result["model"])
             return app.exec_()
 
-        if args.gantt:
-            from gui.gantt import GanttCanvas
-            from PyQt5.QtCore import QCoreApplication
-            import sys
-            elements = []
-            elements.extend(sim_result["model"].processors)
-            elements.extend(sim_result["model"].task_list)
-            app = QCoreApplication(sys.argv)
-            canvas = GanttCanvas(sim_result["model"], (0, sim_result["model"].duration // sim_result["model"].cycles_per_ms,  elements))
-            canvas.saveImgToFile("simulation.png")
-            return app.exec_()
 
-
-def run_multiple_simulation(rts_ids_list: list, args):
+def run_multiple_simulation(rts_ids_list: list, args: dict) -> list:
     """
     Run multiple simulations in parallelel.
     :param rts_ids_list:
     :param args:
     :return:
     """
-    print("File: {0}".format(args.file.name))
-    print("# of RTS to simulate: {0}".format(len(rts_ids_list)))
-    print("# of instances per task: {0}".format(args.instance_count))
-
-    params = {"instance_cnt": args.instance_count, "slack_classes": args.ss_methods}
+    params = {"instance_cnt": args.instance_count, "ss_methods": args.ss_methods}
 
     results = []
 
@@ -133,9 +121,4 @@ def run_multiple_simulation(rts_ids_list: list, args):
                 future = executor.submit(run_sim, rts, params, None)
                 future.add_done_callback(future_process_result)
 
-    results, error_cnt, not_schedulable_cnt, error_list = process_results(results, "mean_only")
-    if results:
-        print_results(results)
-    else:
-        print("No schedulable systems!")
-
+    return results

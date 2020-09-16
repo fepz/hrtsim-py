@@ -71,7 +71,7 @@ def create_configuration(rts, slack_methods, instance_count):
     return configuration
 
 
-def run_sim(rts, params, callback=None, sink=True, retrieve_model=False):
+def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=False) -> dict:
     """
 
     :param rts:
@@ -79,7 +79,7 @@ def run_sim(rts, params, callback=None, sink=True, retrieve_model=False):
     :param callback:
     :return:
     """
-    results = {
+    result = {
         "rts_id": rts["id"],
         "schedulable": rts["schedulable"],
         "error": False,
@@ -95,12 +95,12 @@ def run_sim(rts, params, callback=None, sink=True, retrieve_model=False):
                     callback(progress)
 
             # Create SimSo configuration and model.
-            cfg = create_configuration(rts, params["slack_classes"], params["instance_cnt"])
+            cfg = create_configuration(rts, params["ss_methods"], params["instance_cnt"])
 
             # Creates a SimSo model from the provided SimSo configuration.
             model = Model(cfg, private_callback if callback else None)
             # Add the slack methods to evaluate.
-            model.scheduler.data["slack_methods"] = params["slack_classes"]
+            model.scheduler.data["slack_methods"] = params["ss_methods"]
             # Number of instances to record.
             model.scheduler.data["instance_count"] = params["instance_cnt"]
 
@@ -116,40 +116,57 @@ def run_sim(rts, params, callback=None, sink=True, retrieve_model=False):
             model.run_model()
 
             # For each slack method's creates an Numpy matrix [ tasks x instances ]
-            for slack_method in params["slack_classes"]:
-                slack_method_results = []
-                for task in model.task_list:
-                    slack_method_results.append(task.data["ss"][slack_method]["cc"])
-                results["cc"][slack_method] = np.array(slack_method_results)
+            for ss_method in params["ss_methods"]:
+                result["cc"][ss_method] = np.array([task.data["ss"][ss_method]["cc"] for task in model.task_list])
 
             # Add model
             if retrieve_model:
-                results["model"] = model
+                result["model"] = model
         else:
-            results["error"] = True
-            results["error_msg"] = "No schedulable."
+            result["error"] = True
+            result["error_msg"] = "No schedulable."
 
     except (NegativeSlackException, DifferentSlackException) as exc:
-        results["error"] = True
-        results["error_msg"] = str(exc)
+        result["error"] = True
+        result["error_msg"] = str(exc)
 
     except KeyError as exc:
-        results["error"] = True
-        results["error_msg"] = "Slack Method not found: {0}.".format(str(exc))
+        result["error"] = True
+        result["error_msg"] = "Slack Method not found: {0}.".format(str(exc))
 
-    return results
-
-
-def print_results_options():
-    return ["table", "csv"]
+    return result
 
 
-def process_results_mean_only(r):
-    """
+def print_summary_of_results(results):
+    error_count = 0
+    error_list = []
+    schedulable_count = 0
+    not_schedulable_count = 0
+    for result in results:
+        if not result["error"]:
+            if result["schedulable"]:
+                schedulable_count += 1
+            else:
+                not_schedulable_count += 1
+        else:
+            error_count += 1
+            error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
+    print("# of errors: {0:}".format(error_count))
+    if error_count > 0:
+        for error_msg in error_list:
+            print("\t{0:}".format(error_msg))
+    print("# of schedulable systems: {0:}".format(schedulable_count))
+    print("# of not schedulable systems: {0:}".format(not_schedulable_count))
 
-    :param r:
-    :return:
-    """
+
+def print_means(results):
+    r = defaultdict(list)
+    for result in results:
+        if not result["error"]:
+            if result["schedulable"]:
+                for method_name, method_cc in result["cc"].items():
+                    r[method_name].append(method_cc)
+
     tasks_means = dict()
     for method_name, method_cc in r.items():
         # Genera arreglo (tareas x instancias) con la media de todos los sistemas simulados.
@@ -157,73 +174,7 @@ def process_results_mean_only(r):
         # Genera un vector con la media de las instancias por tarea.
         tasks_means[method_name] = np.mean(r_mean, axis=0, dtype=np.float32)
 
-    return tasks_means
-
-
-def process_results_mean_std(r):
-    """
-
-    :param r:
-    :return:
-    """
-    tasks_means = dict()
-    for method_name, method_cc in r.items():
-        # Genera arreglo (tareas x instancias) con la media de todos los sistemas simulados.
-        r_mean = np.mean(method_cc, axis=2, dtype=np.float32)
-        r_std = np.std(method_cc, axis=2, dtype=np.float32)
-        # Genera un vector con la media de las instancias por tarea.
-        tasks_means["{0}_mean".format(method_name)] = np.mean(r_mean, axis=0, dtype=np.float32)
-        tasks_means["{0}_std".format(method_name)] = np.std(r_mean, axis=0, dtype=np.float32)
-
-    return tasks_means
-
-
-def result_process_options():
-    return list(process_types.keys())
-
-
-process_types = {
-    "mean_only": process_results_mean_only,
-    "mean_std": process_results_mean_std
-}
-
-aggregate_results = {
-    "schedulable_count": 0,
-    "non_schedulable_list": [],
-    "error_count": 0,
-    "error_list": []
-}
-
-
-def process_results(results, process_type):
-    """
-    Process simulation results.
-    :param results: simulation results
-    :param process_type: kind of analysis to perform to the results
-    :return: analysis result, non-schedulable count, error count and error list
-    """
-    r = defaultdict(list)
-
-    schedulable_cnt = 0
-    not_schedulable_cnt = 0
-    error_cnt = 0
-
-    error_list = []
-
-    for result in results:
-        if not result["error"]:
-            if result["schedulable"]:
-                schedulable_cnt += 1
-                for method_name, method_cc in result["cc"].items():
-                    r[method_name].append(method_cc)
-            else:
-                not_schedulable_cnt += 1
-                error_list.append("RTS {:d}: not schedulable.\n".format(result["rts_id"]))
-        else:
-            error_cnt += 1
-            error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
-
-    return process_types[process_type](r), not_schedulable_cnt, error_cnt, error_list
+    print_results(tasks_means)
 
 
 def print_results(results, print_as="table", stdout=True):
