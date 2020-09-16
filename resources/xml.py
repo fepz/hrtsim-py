@@ -139,8 +139,7 @@ def get_from_xml(file: TextIO, rts_id_list: list):
     current_id, rts, rts_found = 0, dict(), False
 
     for rts_id in rts_id_list:
-        rts["id"] = rts_id
-        rts["tasks"] = []
+        rts = {"id": rts_id, "tasks": []}
 
         # read the xml, parse task-sets and simulate it
         for event, elem in context:
