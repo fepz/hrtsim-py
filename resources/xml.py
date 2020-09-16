@@ -136,7 +136,7 @@ def get_from_xml(file: TextIO, rts_id_list: list):
     # get the root element
     event, root = next(context)
 
-    current_id, rts, rts_found = 0, dict(), False
+    current_id, rts_found = 0, False
 
     for rts_id in rts_id_list:
         rts = {"id": rts_id, "tasks": []}
