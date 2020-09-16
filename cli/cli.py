@@ -69,7 +69,7 @@ def run_single_simulation(rts, args):
 
     params = {
         "instance_cnt": args.instance_count,
-        "slack_classes": args.ss_methods,
+        "ss_methods": args.ss_methods,
     }
 
     with tqdm(total=100, ascii=True, desc="Simulating...") as progress:

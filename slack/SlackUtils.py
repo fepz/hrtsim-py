@@ -53,24 +53,24 @@ def reduce_slacks(tasks, amount, t):
             raise NegativeSlackException(t, task, "Scheduler")
 
 
-def multiple_slack_calc(tc, job, tasks, slack_methods):
+def multiple_slack_calc(tc, job, tasks, slack_methods: list) -> dict:
     # calculate slack with each method in slack_methods
-    slack_results = [(m,) + get_slack_methods()[m](job.task, tasks, tc) for m in slack_methods]
+    slack_results = [(m, get_slack_methods()[m](job.task, tasks, tc)) for m in slack_methods]
 
     # check for negative slacks
-    for result in slack_results:
-        if result[1] < 0:
-            raise NegativeSlackException(tc, result[0], job.name)
+    for method, result in slack_results:
+        if result["slack"] < 0:
+            raise NegativeSlackException(tc, method, job.name)
 
     # verify that all the methods results are the same
-    ss_ref = slack_results[0][1]
-    ttma_ref = slack_results[0][2]
-    for result in slack_results:
-        if result[1] != ss_ref or (result[2] > 0 and result[2] != ttma_ref):
-            raise DifferentSlackException(tc, job, result[0], slack_results)
+    ss_ref = slack_results[0][1]["slack"]
+    ttma_ref = slack_results[0][1]["ttma"]
+    for method, result in slack_results:
+        if result["slack"] != ss_ref or (result["ttma"] > 0 and result["ttma"] != ttma_ref):
+            raise DifferentSlackException(tc, job, method, slack_results)
 
     # return slack and ttma
-    return ss_ref, ttma_ref, slack_results
+    return {"slack": ss_ref, "ttma": ttma_ref, "ss_results": slack_results}
 
 
 def _slackcalc3(self, task_list, tc, t, wc, i, w_t):

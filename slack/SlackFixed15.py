@@ -38,7 +38,7 @@ def get_slack(task, task_list, tc):
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
-        return task.data["ss"]["di"] - tc - task.data["R"], task.data["ss"]["di"], ceil.counter, 0  # , []
+        return {"slack": task.data["ss"]["di"] - tc - task.data["R"], "ttma": task.data["ss"]["di"], "cc": ceil.counter}
 
     # sort the task list by period (RM)
     tl = sorted(task_list, key=lambda x: x.period)
@@ -51,9 +51,7 @@ def get_slack(task, task_list, tc):
 
     # corollary 2
     if (htask.data["ss"]["di"] + htask.wcet >= task.data["ss"]["di"]) and (task.data["ss"]["di"] >= htask.data["ss"]["ttma"]):
-        tmax = htask.data["ss"]["ttma"]
-        kmax = htask.data["ss"]["slack"] - task.wcet
-        return kmax, tmax, ceil.counter, 0  # , []
+        return {"slack": htask.data["ss"]["slack"] - task.wcet, "ttma": htask.data["ss"]["ttma"], "cc": ceil.counter}
 
     # theorem 3
     intervalo = xi + (task.deadline - task.data["R"]) + task.wcet
@@ -116,6 +114,4 @@ def get_slack(task, task_list, tc):
             # next arrival
             ii += htask.period
 
-    result = {"smax": kmax, "tmax": tmax, "inv": ceil.counter + floor.counter, "slack_calcs": slack_calcs}
-
-    return kmax, tmax, ceil.counter + floor.counter, slack_calcs  # , slack_points
+    return {"slack": kmax, "ttma": tmax, "cc": ceil.counter + floor.counter}

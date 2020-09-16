@@ -88,7 +88,7 @@ def get_slack(task, task_list, tc):
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
-        return task.data["ss"]["di"] - tc - task.data["R"], task.data["ss"]["di"], ceil.counter, 0  # , []
+        return {"slack": task.data["ss"]["di"] - tc - task.data["R"], "ttma": task.data["ss"]["di"], "cc": ceil.counter}
 
     max_s = 0
     max_t = task.data["ss"]["di"]
@@ -101,9 +101,7 @@ def get_slack(task, task_list, tc):
 
     # corollary 2
     if (ptask.data["ss"]["di"] + ptask.wcet >= task.data["ss"]["di"]) and (task.data["ss"]["di"] >= ptask.data["ss"]["ttma"]):
-        max_t = ptask.data["ss"]["ttma"]
-        max_s = ptask.data["ss"]["slack"] - task.wcet
-        return max_s, max_t, ceil.counter, 0  # , []
+        return {"slack": ptask.data["ss"]["slack"] - task.wcet, "ttma": ptask.data["ss"]["ttma"], "cc": ceil.counter}
 
     # theorem 3
     intervalo = xi + (task.deadline - task.data["R"]) + task.wcet
@@ -151,4 +149,4 @@ def get_slack(task, task_list, tc):
         print(" --- Job {} , tc {},  --- ".format(task.job.name if task.job else "?", tc))
         print("dups:", dups)
 
-    return max_s, max_t, ceil.counter + floor.counter, len(ss_points)  # het_ss_calcs
+    return {"slack": max_s, "ttma": max_t, "cc": ceil.counter + floor.counter}

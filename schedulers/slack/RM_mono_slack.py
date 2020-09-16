@@ -43,17 +43,17 @@ class RM_mono_slack(Scheduler):
         reduce_slacks(self.task_list[:(job.task.identifier - 1)], job_runtime, tc)
 
         # calculate task slack
-        ss, ttma, slack_results = multiple_slack_calc(tc, job, self.task_list, self.data["slack_methods"])
+        ss_result = multiple_slack_calc(tc, job, self.task_list, self.data["slack_methods"])
 
         # log results
-        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss, ttma
+        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
         # Record the computational cost
         if job.task._job_count <= self.sim.scheduler.data["instance_count"]:
-            for slack_result in slack_results:
-                job.task.data["ss"][slack_result[0]]["cc"].append(slack_result[3])
+            for method, slack_result in ss_result["ss_results"]:
+                job.task.data["ss"][method]["cc"].append(slack_result["cc"])
 
-        job.task.monitor.observe(SlackEvent(job, slack_results, SlackEvent.CALC_SLACK))
+        job.task.monitor.observe(SlackEvent(job, ss_result, SlackEvent.CALC_SLACK))
 
         self._sim.logger.log(job.name + " Slack calculated: {:f}".format(job.task.data["ss"]["slack"]), kernel=True)
 
