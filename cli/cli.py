@@ -102,7 +102,7 @@ def run_single_simulation(rts, args):
 
 def run_multiple_simulation(rts_ids_list: list, args: dict) -> list:
     """
-    Run multiple simulations in parallelel.
+    Run multiple simulations in parallel.
     :param rts_ids_list:
     :param args:
     :return:
