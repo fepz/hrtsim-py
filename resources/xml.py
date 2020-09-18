@@ -180,9 +180,7 @@ def get_from_json(file: TextIO, ids: list) -> list:
     rts_list = []
 
     for id, tasks in [(id, rts_in_file[id]) for id in ids]:
-        rts = dict()
-        rts["id"] = id
-        rts["tasks"] = []
+        rts = {"id": id, "tasks": []}
 
         # Add expected keys
         if type(tasks) is list:
