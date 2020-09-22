@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, FileType
+import sys
 
 
 def get_args():
@@ -12,12 +13,15 @@ def get_args():
     parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
     parser.add_argument("--silent", action="store_true", help="Suppress output.")
     parser.add_argument("--multiple", action="store_true", help="Multiple RTS simulation.")
-    parser.add_argument("--gantt", action="store_true", help="Show gantt of scheduling.")
     parser.add_argument("--gantt-gui", action="store_true", help="Show gantt of scheduling.")
     return parser.parse_args()
 
 
 def main():
+    if not len(sys.argv) > 1:
+        print("No arguments!", file=sys.stderr)
+        exit()
+
     args = get_args()
     if args.gui:
         from tkinter import Tk
