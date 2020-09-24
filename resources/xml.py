@@ -1,44 +1,27 @@
 from typing import TextIO
+from functools import reduce
 import xml.etree.cElementTree as et
 import math
 
-from functools import reduce
-try:
-    from fractions import gcd
-except ImportError:
-    def gcd(a, b):
-        while b:
-            a, b = b, a % b
-        return a
+
+def lcm(rts: list) -> float:
+    """ Real-time system hiperperiod (l.c.m) """
+    return reduce(lambda x, y: (x * y) // math.gcd(x, y), [task["T"] for task in rts], 1)
 
 
-def lcm(rts: list) -> int:
-    """ Calcula el hiperperiodo de rts """
-    periods = []
-    for task in rts:
-        periods.append(task["T"])
-    return reduce(lambda x, y: (x * y) // gcd(x, y), periods, 1)
+def uf(rts: list) -> float:
+    """ Real-time system utilization factor """
+    return sum([float(task["C"]) / float(task["T"]) for task in rts])
 
 
-def calc_fu(rts: list) -> float:
-    """ Calcula el FU del rts """
-    fu = 0
-    for task in rts:
-        fu = fu + (float(task["C"]) / float(task["T"]))
-    return fu
-
-
-def cota_liu(rts: list) -> float:
-    """ Calcula planificabilidad por la cota de Liu """
+def liu_bound(rts: list) -> float:
+    """ Evaluate schedulability using the Liu & Layland bound """
     return len(rts) * (pow(2, 1.0 / float(len(rts))) - 1)
 
 
-def cota_bini(rts: list) -> float:
-    """ Calcula planificabilidad por la cota de Bini """
-    cota = 1
-    for task in rts:
-        cota *= ((float(task["C"]) / float(task["T"])) + 1)
-    return cota
+def bini_bound(rts):
+    """ Evaluate schedulability using the hyperbolic bound """
+    return reduce(lambda a, b: a*b, [float(task["C"]) / float(task["T"]) + 1 for task in rts])
 
 
 def joseph_wcrt(rts: list):
@@ -82,25 +65,17 @@ def first_free_slot(rts: list):
 
 
 def calculate_k(rts: list) -> None:
-    """ Calcula el K de cada tarea (máximo retraso en el instante critico) """
+    """ Calcula el K de cada tarea (maximo retraso en el instante critico) """
     rts[0]["k"] = rts[0]["T"] - rts[0]["C"]
 
     for i, task in enumerate(rts[1:], 1):
-        r = 1
+        t = 0
         k = 1
-        c, t, d = task["C"], task["T"], task["D"]
-        while True:
-            w = 0
-            for taskp in rts[:i]:
-                cp, tp = taskp["C"], taskp["T"]
-                w += math.ceil(float(r) / float(tp)) * cp
-            w = c + w + k
-            if r == w:
-                r = 1
-                k = k + 1
-            r = w
-            if r > d:
-                break
+        while t <= task["D"]:
+            w = k + task["C"] + sum([math.ceil(float(t) / float(taskp["T"]))*taskp["C"] for taskp in rts[:i]])
+            if t == w:
+                k += 1
+            t = w
         task["k"] = k - 1
 
 
@@ -110,10 +85,10 @@ def analyze_rts(rts: dict):
     :param rts: rts
     :return: None
     """
-    rts["fu"] = calc_fu(rts["tasks"])
+    rts["fu"] = uf(rts["tasks"])
     rts["lcm"] = lcm(rts["tasks"])
-    rts["liu"] = cota_liu(rts["tasks"])
-    rts["bini"] = cota_bini(rts["tasks"])
+    rts["liu"] = liu_bound(rts["tasks"])
+    rts["bini"] = bini_bound(rts["tasks"])
     rts["schedulable"] = joseph_wcrt(rts["tasks"])
     calculate_k(rts["tasks"])
 
