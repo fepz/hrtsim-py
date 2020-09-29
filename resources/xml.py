@@ -150,25 +150,33 @@ def get_from_json(file: TextIO, ids: list) -> list:
     :param ids: list of rts ids
     :return: list of rts
     """
+
+    def get_tasks(tasks: list) -> list:
+        result = []
+        for nro, task in enumerate(tasks, 1):
+            if "nro" not in task:
+                task["nro"] = nro
+            if "C" not in task:
+                task["C"] = task.pop("c")
+            if "T" not in task:
+                task["T"] = task.pop("t")
+            if "D" not in task:
+                task["D"] = task.pop("d", task["T"])
+            result.append(task)
+        return result
+
     import json
     rts_in_file = json.load(file)
     rts_list = []
 
     for id, tasks in [(id, rts_in_file[id]) for id in ids]:
-        rts = {"id": id, "tasks": []}
+        rts = {"id": id, "tasks": [], "atasks": [], "stasks": []}
 
-        # Add expected keys
-        if type(tasks) is list:
-            for nro, task in enumerate(tasks, 1):
-                if "nro" not in task:
-                    task["nro"] = nro
-                if "C" not in task:
-                    task["C"] = task.pop("c")
-                if "T" not in task:
-                    task["T"] = task.pop("t")
-                if "D" not in task:
-                    task["D"] = task.pop("d", task["T"])
-                rts["tasks"].append(task)
+        if type(tasks["periodic"]) is list:
+            rts["tasks"] = get_tasks(tasks["periodic"])
+
+        if "aperiodic" in tasks:
+            rts["atasks"] = tasks["aperiodic"]
 
         analyze_rts(rts)
         rts_list.append(rts)
