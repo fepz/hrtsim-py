@@ -54,13 +54,16 @@ class RM_mono_slack(Scheduler):
                 job.task.data["ss"][method]["cc"].append(slack_result["cc"])
                 job.task.data["ss"][method]["theorems"].append(slack_result["theorems"])
 
+        # Observe that a slack calculation was performed
         job.task.monitor.observe(SlackEvent(job, ss_result, SlackEvent.CALC_SLACK))
 
+        # Log that a slack calculation was performed
         self._sim.logger.log(job.name + " Slack calculated: {:f}".format(job.task.data["ss"]["slack"]), kernel=True)
 
-        # find system new minimum slack
+        # Find system new minimum slack
         self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
 
+        # Remove the job from the CPU and reschedule
         self.ready_list.remove(job)
         job.cpu.resched()
 

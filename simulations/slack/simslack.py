@@ -153,7 +153,10 @@ def process_result(params: dict, model) -> list:
             if task.data["ss"][ss_method]["theorems"]:
                 for task_instance in task.data["ss"][ss_method]["theorems"]:
                     for theorem in task_instance:
-                        theo[task.name][(ss_method, theorem)] += 1
+                        if (ss_method, theorem) in theo[task.name].keys():
+                            theo[task.name][(ss_method, theorem)] += 1
+                        else:
+                            theo[task.name][(ss_method, theorem)] = 1
 
     return [cc, theo]
 
