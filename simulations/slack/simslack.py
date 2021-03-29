@@ -164,11 +164,8 @@ def process_result(params: dict, model) -> list:
 def print_simulation_results(params, results, what) -> None:
     import pandas as pd
 
-    df = pd.DataFrame.from_dict(results["theorems"], orient="index")
-    print(df.to_markdown())
-
-    df2 = pd.DataFrame.from_dict(results["cc"], orient="index")
-    print(df2.to_markdown())
+    print(pd.DataFrame.from_dict(results["theorems"], orient="index").to_markdown())
+    print(pd.DataFrame.from_dict(results["cc"], orient="index").to_markdown())
 
 
 def print_summary_of_results(results):
