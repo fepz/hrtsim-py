@@ -1,4 +1,4 @@
-from simulations.slack.simslack import run_sim, print_results, print_summary_of_results, print_means
+from simulations.slack.simslack import run_sim, print_summary_of_results, print_simulation_results
 from concurrent.futures import ProcessPoolExecutor
 from tqdm.auto import tqdm
 from resources.xml import get_from_file
@@ -74,7 +74,7 @@ def run_single_simulation(rts, args):
                 print(tabulate(ss_result, showindex=table_tasks, headers=range(1, args.instance_count + 1),
                                tablefmt="github"))
 
-        print_means([sim_result])
+        print_simulation_results(params, sim_result, "nais")
 
         if args.gantt_gui:
             from gui.gantt import create_gantt_window

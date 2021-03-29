@@ -1,6 +1,4 @@
 import numpy as np
-from tabulate import tabulate
-from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
@@ -32,11 +30,10 @@ class SinkMonitor(list):
         return 0
 
 
-def create_configuration(rts, slack_methods, instance_count):
+def create_configuration(rts, params):
     """
 
     :param rts:
-    :param slack_methods:
     :param instance_count:
     :return:
     """
@@ -44,12 +41,12 @@ def create_configuration(rts, slack_methods, instance_count):
     configuration = Configuration()
 
     # Simulate until the lower priority task has n instantiations.
-    configuration.duration = (rts["tasks"][-1]["T"] * (instance_count + 1)) * configuration.cycles_per_ms
+    configuration.duration = (rts["tasks"][-1]["T"] * (params["instance_count"] + 1)) * configuration.cycles_per_ms
 
     # Add some extra required fields for slack stealing simulation.
     for task in rts["tasks"]:
         # Each slack method needs its own copy of A, B, C and CC (computational cost).
-        for ss_method in slack_methods:
+        for ss_method in params["slack_methods"]:
             task["ss"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': [], 'theorems': []}
 
     # Create the tasks and add them to the SimSo configuration.
@@ -73,18 +70,17 @@ def create_configuration(rts, slack_methods, instance_count):
 
 def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=False) -> dict:
     """
-    Run the simulation of a rts.
-    :param rts: rts to simulate.
-    :param params: simulation parameters.
-    :param callback: callback to be called from simso.
-    :return: a dict with the simulation results
+
+    :param rts:
+    :param params:
+    :param callback:
+    :return:
     """
     result = {
         "rts_id": rts["id"],
         "schedulable": rts["schedulable"],
         "error": False,
-        "cc": {},
-        "theorems": {}
+        "cc": {}
     }
 
     try:
@@ -96,7 +92,7 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
                     callback(progress)
 
             # Create SimSo configuration and model.
-            cfg = create_configuration(rts, params["ss_methods"], params["instance_cnt"])
+            cfg = create_configuration(rts, params["ss_methods"])
 
             # Creates a SimSo model from the provided SimSo configuration.
             model = Model(cfg, private_callback if callback else None)
@@ -116,14 +112,13 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
             # Run the simulation.
             model.run_model()
 
+            # For each slack method's creates an Numpy matrix [ tasks x instances ]
+            for ss_method in params["ss_methods"]:
+                result["cc"][ss_method] = np.array([task.data["ss"][ss_method]["cc"] for task in model.task_list])
+
             # Add model
             if retrieve_model:
                 result["model"] = model
-
-            # Process the results
-            cc, theo = process_result(params, model)
-            result["cc"] = cc
-            result["theorems"] = theo
         else:
             result["error"] = True
             result["error_msg"] = "No schedulable."
@@ -137,54 +132,3 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
         result["error_msg"] = "Slack Method not found: {0}.".format(str(exc))
 
     return result
-
-
-def process_result(params: dict, model) -> list:
-    cc = {}
-    for task in model.task_list:
-        cc[task.name] = {}
-        for ss_method in params["ss_methods"]:
-            cc[task.name][ss_method] = np.mean(task.data["ss"][ss_method]["cc"])
-
-    theo = {}
-    for task in model.task_list:
-        theo[task.name] = {}
-        for ss_method in params["ss_methods"]:
-            if task.data["ss"][ss_method]["theorems"]:
-                for task_instance in task.data["ss"][ss_method]["theorems"]:
-                    for theorem in task_instance:
-                        theo[task.name][(ss_method, theorem)] += 1
-
-    return [cc, theo]
-
-
-def print_simulation_results(params, results, what) -> None:
-    import pandas as pd
-
-    df = pd.DataFrame.from_dict(results["theorems"], orient="index")
-    print(df.to_markdown())
-
-    df2 = pd.DataFrame.from_dict(results["cc"], orient="index")
-    print(df2.to_markdown())
-
-
-def print_summary_of_results(results):
-    error_count = 0
-    error_list = []
-    schedulable_count = 0
-    not_schedulable_count = 0
-    for result in results:
-        if not result["error"]:
-            if result["schedulable"]:
-                schedulable_count += 1
-            else:
-                not_schedulable_count += 1
-        else:
-            error_count += 1
-            error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
-    print("# of errors: {0:}".format(error_count))
-    if error_count > 0:
-        for error_msg in error_list:
-            print("\t{0:}".format(error_msg))
-    print("# of schedulable systems: {0:}".format(schedulable_count))
-    print("# of not schedulable systems: {0:}".format(not_schedulable_count))

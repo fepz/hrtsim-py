@@ -52,6 +52,7 @@ class RM_mono_slack(Scheduler):
         if job.task._job_count <= self.sim.scheduler.data["instance_count"]:
             for method, slack_result in ss_result["ss_results"]:
                 job.task.data["ss"][method]["cc"].append(slack_result["cc"])
+                job.task.data["ss"][method]["theorems"].append(slack_result["theorems"])
 
         job.task.monitor.observe(SlackEvent(job, ss_result, SlackEvent.CALC_SLACK))
 
