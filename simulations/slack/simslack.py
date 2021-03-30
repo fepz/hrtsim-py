@@ -50,7 +50,7 @@ def create_configuration(rts, slack_methods, instance_count):
     for task in rts["tasks"]:
         # Each slack method needs its own copy of A, B, C and CC (computational cost).
         for ss_method in slack_methods:
-            task["ss"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': [], 'theorems': []}
+            task["ss"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0}
 
     # Create the tasks and add them to the SimSo configuration.
     for task in rts["tasks"]:
@@ -83,8 +83,6 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
         "rts_id": rts["id"],
         "schedulable": rts["schedulable"],
         "error": False,
-        "cc": {},
-        "theorems": {}
     }
 
     try:
@@ -105,6 +103,12 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
             # Number of instances to record.
             model.scheduler.data["instance_count"] = params["instance_cnt"]
 
+            model.scheduler.data["results"] = {}
+            model.scheduler.data["results"]["ss-cc"] = {}
+            for ss_method in params["ss_methods"]:
+                model.scheduler.data["results"]["ss-cc"][(ss_method, "cc")] = {}
+            model.scheduler.data["results"]["ss-theo"] = defaultdict(lambda: defaultdict(int))
+
             # Discard trace information to reduce memory footprint
             if sink:
                 model._logger = SinkLogger(model)
@@ -121,9 +125,9 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
                 result["model"] = model
 
             # Process the results
-            cc, theo = process_result(params, model)
+            cc, theo = process_result(rts, params, model)
             result["cc"] = cc
-            result["theorems"] = theo
+            result["theo"] = theo
         else:
             result["error"] = True
             result["error_msg"] = "No schedulable."
@@ -139,39 +143,33 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
     return result
 
 
-def process_result(params: dict, model) -> list:
-    cc = {}
-    for task in model.task_list:
-        cc[task.name] = {}
-        for ss_method in params["ss_methods"]:
-            cc[task.name][ss_method] = np.mean(task.data["ss"][ss_method]["cc"])
+def process_result(rts: dict, params: dict, model) -> list:
+    import pandas as pd
 
-    theo = {}
-    for task in model.task_list:
-        theo[task.name] = {}
-        for ss_method in params["ss_methods"]:
-            if task.data["ss"][ss_method]["theorems"]:
-                for task_instance in task.data["ss"][ss_method]["theorems"]:
-                    for theorem in task_instance:
-                        if (ss_method, theorem) in theo[task.name].keys():
-                            theo[task.name][(ss_method, theorem)] += 1
-                        else:
-                            theo[task.name][(ss_method, theorem)] = 1
+    cc_df = pd.DataFrame(model.scheduler.data["results"]["ss-cc"])
+    cc_df.index.names = ["Task", "Instance"]
 
-    return [cc, theo]
+    theo_df = pd.DataFrame(model.scheduler.data["results"]["ss-theo"])
+    theo_df.index.names = ["Task"]
+
+    return [cc_df, theo_df]
 
 
 def print_simulation_results(results) -> None:
     import pandas as pd
-    print(pd.DataFrame.from_dict(results["theorems"], orient="index").to_markdown())
+    print(pd.DataFrame.from_dict(results["theo"], orient="index").to_markdown())
     print(pd.DataFrame.from_dict(results["cc"], orient="index").to_markdown())
 
 
 def print_means(results: list):
     import pandas as pd
-    df = pd.concat([pd.DataFrame.from_dict(r["theorems"], orient="index") for r in results])
+
+    df = pd.concat([r["cc"] for r in results if not r["error"]])
+    print(df.groupby(["Task"]).mean().to_markdown())
     print(df.aggregate(np.mean).to_markdown())
-    df = pd.concat([pd.DataFrame.from_dict(r["cc"], orient="index") for r in results])
+
+    df = pd.concat([r["theo"] for r in results if not r["error"]])
+    print(df.groupby(["Task"]).sum().to_markdown())
     print(df.aggregate(np.mean).to_markdown())
 
 

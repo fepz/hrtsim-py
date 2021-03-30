@@ -48,11 +48,14 @@ class RM_mono_slack(Scheduler):
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
+        results = self.sim.scheduler.data["results"]
+
         # Slack methods information
         if job.task._job_count <= self.sim.scheduler.data["instance_count"]:
             for method, slack_result in ss_result["ss_results"]:
-                job.task.data["ss"][method]["cc"].append(slack_result["cc"])
-                job.task.data["ss"][method]["theorems"].append(slack_result["theorems"])
+                results["ss-cc"][(method, "cc")][(job.task.identifier, job.task._job_count)] = slack_result["cc"]
+                for theorem in slack_result["theorems"]:
+                    results["ss-theo"][(method, "theorem", theorem)][(job.task.identifier)] += 1
 
         # Observe that a slack calculation was performed
         job.task.monitor.observe(SlackEvent(job, ss_result, SlackEvent.CALC_SLACK))

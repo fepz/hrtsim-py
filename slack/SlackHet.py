@@ -82,13 +82,16 @@ def get_slack(task, task_list, tc):
     floor.counter = 0
     slack_cc = 0
 
+    theorems = []
+
     slack_cc += 1
     xi = ceil(tc / task.period) * task.period
     task.data["ss"]["di"] = xi + task.deadline
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
-        return {"slack": task.data["ss"]["di"] - tc - task.data["R"], "ttma": task.data["ss"]["di"], "cc": ceil.counter}
+        return {"slack": task.data["ss"]["di"] - tc - task.data["R"], "ttma": task.data["ss"]["di"], "cc": ceil.counter,
+                "theorems": []}
 
     max_s = 0
     max_t = task.data["ss"]["di"]
@@ -101,7 +104,8 @@ def get_slack(task, task_list, tc):
 
     # corollary 2
     if (ptask.data["ss"]["di"] + ptask.wcet >= task.data["ss"]["di"]) and (task.data["ss"]["di"] >= ptask.data["ss"]["ttma"]):
-        return {"slack": ptask.data["ss"]["slack"] - task.wcet, "ttma": ptask.data["ss"]["ttma"], "cc": ceil.counter}
+        return {"slack": ptask.data["ss"]["slack"] - task.wcet, "ttma": ptask.data["ss"]["ttma"], "cc": ceil.counter,
+                "theorems": [2]}
 
     # theorem 3
     intervalo = xi + (task.deadline - task.data["R"]) + task.wcet
@@ -111,6 +115,7 @@ def get_slack(task, task_list, tc):
         intervalo = ptask.data["ss"]["di"] + ptask.wcet
         max_t = ptask.data["ss"]["ttma"]
         max_s = ptask.data["ss"]["slack"] - task.wcet
+        theorems.append(4)
 
     # workload at tc
     wc = 0
@@ -149,4 +154,4 @@ def get_slack(task, task_list, tc):
         print(" --- Job {} , tc {},  --- ".format(task.job.name if task.job else "?", tc))
         print("dups:", dups)
 
-    return {"slack": max_s, "ttma": max_t, "cc": ceil.counter + floor.counter}
+    return {"slack": max_s, "ttma": max_t, "cc": ceil.counter + floor.counter, "theorems": theorems}
