@@ -155,13 +155,7 @@ def process_result(rts: dict, params: dict, model) -> list:
     return [cc_df, theo_df]
 
 
-def print_simulation_results(results) -> None:
-    import pandas as pd
-    print(pd.DataFrame.from_dict(results["theo"], orient="index").to_markdown())
-    print(pd.DataFrame.from_dict(results["cc"], orient="index").to_markdown())
-
-
-def print_means(results: list):
+def print_means(results: list) -> None:
     import pandas as pd
 
     df = pd.concat([r["cc"] for r in results if not r["error"]])
