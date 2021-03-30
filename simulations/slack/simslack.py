@@ -168,8 +168,11 @@ def print_simulation_results(results) -> None:
 
 
 def print_means(results: list):
-    for result in results:
-        print_simulation_results(result)
+    import pandas as pd
+    df = pd.concat([pd.DataFrame.from_dict(r["theorems"], orient="index") for r in results])
+    print(df.aggregate(np.mean).to_markdown())
+    df = pd.concat([pd.DataFrame.from_dict(r["cc"], orient="index") for r in results])
+    print(df.aggregate(np.mean).to_markdown())
 
 
 def print_summary_of_results(results):
