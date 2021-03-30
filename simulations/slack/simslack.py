@@ -125,7 +125,7 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
                 result["model"] = model
 
             # Process the results
-            cc, theo = process_result(rts, params, model)
+            cc, theo = process_result(model)
             result["cc"] = cc
             result["theo"] = theo
         else:
@@ -143,7 +143,7 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
     return result
 
 
-def process_result(rts: dict, params: dict, model) -> list:
+def process_result(model) -> list:
     import pandas as pd
 
     cc_df = pd.DataFrame(model.scheduler.data["results"]["ss-cc"])
