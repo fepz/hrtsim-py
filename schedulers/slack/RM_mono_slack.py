@@ -48,9 +48,8 @@ class RM_mono_slack(Scheduler):
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
+        # Register simulation variables
         results = self.sim.scheduler.data["results"]
-
-        # Slack methods information
         if job.task._job_count <= self.sim.scheduler.data["instance_count"]:
             for method, slack_result in ss_result["ss_results"]:
                 results["ss-cc"][(method, "cc")][(job.task.identifier, job.task._job_count)] = slack_result["cc"]
