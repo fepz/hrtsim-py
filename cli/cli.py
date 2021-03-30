@@ -1,4 +1,4 @@
-from simulations.slack.simslack import run_sim, print_summary_of_results, print_simulation_results
+from simulations.slack.simslack import run_sim, print_summary_of_results, print_simulation_results, print_means
 from concurrent.futures import ProcessPoolExecutor
 from tqdm.auto import tqdm
 from resources.xml import get_from_file
@@ -19,8 +19,7 @@ def run_simulation(args):
         print("# of RTS to simulate: {0}".format(len(rts_list)))
         print("# of instances per task: {0}".format(args.instance_count))
         result = run_multiple_simulation(rts_list, args)
-        #for p in [print_summary_of_results, print_means]:
-        for p in [print_summary_of_results]:
+        for p in [print_summary_of_results, print_means]:
             p(result)
 
 

@@ -161,11 +161,15 @@ def process_result(params: dict, model) -> list:
     return [cc, theo]
 
 
-def print_simulation_results(params, results, what) -> None:
+def print_simulation_results(results) -> None:
     import pandas as pd
-
     print(pd.DataFrame.from_dict(results["theorems"], orient="index").to_markdown())
     print(pd.DataFrame.from_dict(results["cc"], orient="index").to_markdown())
+
+
+def print_means(results: list):
+    for result in results:
+        print_simulation_results(result)
 
 
 def print_summary_of_results(results):
@@ -174,12 +178,11 @@ def print_summary_of_results(results):
     schedulable_count = 0
     not_schedulable_count = 0
     for result in results:
-        if not result["error"]:
-            if result["schedulable"]:
-                schedulable_count += 1
-            else:
-                not_schedulable_count += 1
+        if result["schedulable"]:
+            schedulable_count += 1
         else:
+            not_schedulable_count += 1
+        if result["error"]:
             error_count += 1
             error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
     print("# of errors: {0:}".format(error_count))
