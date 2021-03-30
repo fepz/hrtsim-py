@@ -48,7 +48,7 @@ class RM_mono_slack(Scheduler):
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
-        # Record the computational cost
+        # Slack methods information
         if job.task._job_count <= self.sim.scheduler.data["instance_count"]:
             for method, slack_result in ss_result["ss_results"]:
                 job.task.data["ss"][method]["cc"].append(slack_result["cc"])
