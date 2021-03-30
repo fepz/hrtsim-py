@@ -184,7 +184,7 @@ def print_summary_of_results(results):
             not_schedulable_count += 1
         if result["error"]:
             error_count += 1
-            error_list.append("RTS {:d}: {:s}.\n".format(result["rts_id"], result["error_msg"]))
+            error_list.append("RTS {:d}: {:s}".format(result["rts_id"], result["error_msg"]))
     print("# of errors: {0:}".format(error_count))
     if error_count > 0:
         for error_msg in error_list:
