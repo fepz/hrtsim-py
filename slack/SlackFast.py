@@ -97,15 +97,13 @@ def get_slack(task, task_list, tc):
     ceil.counter = 0
     floor.counter = 0
 
-    slack_cc = 0
     points = []
 
     # theorems and corollaries applied
     theorems = []
 
-    xi = math.ceil(tc / task.period) * task.period
+    xi = ceil(tc / task.period) * task.period
     task.data["ss"]["di"] = xi + task.deadline
-    slack_cc += 1
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
@@ -148,7 +146,6 @@ def get_slack(task, task_list, tc):
 
     # calculate slack in deadline
     k2, slackcalc_cc = slackcalc(tl[:task.identifier], tc, task.data["ss"]["di"], wc)
-    slack_cc += slackcalc_cc
     slack_calcs = 1
     points.append(task.data["ss"]["di"])
 
@@ -176,7 +173,6 @@ def get_slack(task, task_list, tc):
     # iterative section
     while task.data["ss"]["di"] > t:
         w, t1, loop_cc = _loop(task.data["ss"]["di"], t1, tl[:task.identifier])
-        slack_cc += loop_cc
 
         if t1 > task.data["ss"]["di"]:
             break
@@ -195,7 +191,6 @@ def get_slack(task, task_list, tc):
 
                 # heuristic
                 tmin, tmax, s, htl, heuristic_cc, heuristic_slack_calcs = _heuristic(tc, wc, tmas, tmax, kmax, task.data["ss"]["di"], tl[:task.identifier], htl)
-                slack_cc += heuristic_cc
                 slack_calcs += heuristic_slack_calcs
 
                 kmax = s
