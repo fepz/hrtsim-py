@@ -26,7 +26,7 @@ def get_slack(task, task_list, tc):
                 task.data["ss"]["SlackHet"]["a"] = a_t * task.wcet
                 task.data["ss"]["SlackHet"]["b"] = a_t * task.period
             w = w + task.data["ss"]["SlackHet"]["a"]
-        return t - tc - w + wc, w
+        return t - tc - w + wc
 
     def _het_search(task_list, i, ii, params):
         method_name = "SlackHet"
@@ -67,31 +67,28 @@ def get_slack(task, task_list, tc):
 
     method_name = "SlackHet"
     params = {
-        "points": [],  # t values at which slackcalc is invoked
-        "slacks" : [],  # slack values calculated for each t
-        "cc" : 0,
-        "ss_points": [],
-        "last_psi" : 0,
-        "het_limit" : 0,
-        "intervalo": 0,
-        "minb" : 0,
-        "verbose" : False  # print trace
+        "points":       [],  # t values at which slackcalc is invoked
+        "slacks":       [],  # slack values calculated for each t
+        "cc":           0,
+        "ss_points":    [],
+        "last_psi":     0,
+        "het_limit":    0,
+        "intervalo":    0,
+        "minb":         0,
+        "verbose":      False  # print trace
     }
 
     ceil.counter = 0
     floor.counter = 0
-    slack_cc = 0
-
     theorems = []
 
-    slack_cc += 1
     xi = ceil(tc / task.period) * task.period
     task.data["ss"]["di"] = xi + task.deadline
 
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
-        return {"slack": task.data["ss"]["di"] - tc - task.data["R"], "ttma": task.data["ss"]["di"], "cc": ceil.counter,
-                "theorems": []}
+        return {"slack": task.data["ss"]["di"] - tc - task.data["R"],
+                "ttma": task.data["ss"]["di"], "cc": ceil.counter, "theorems": []}
 
     max_s = 0
     max_t = task.data["ss"]["di"]
@@ -103,8 +100,10 @@ def get_slack(task, task_list, tc):
     ptask = tl[task.identifier - 2]
 
     # corollary 2
-    if (ptask.data["ss"]["di"] + ptask.wcet >= task.data["ss"]["di"]) and (task.data["ss"]["di"] >= ptask.data["ss"]["ttma"]):
-        return {"slack": ptask.data["ss"]["slack"] - task.wcet, "ttma": ptask.data["ss"]["ttma"], "cc": ceil.counter,
+    if (ptask.data["ss"]["di"] + ptask.wcet >= task.data["ss"]["di"]) and \
+            (task.data["ss"]["di"] >= ptask.data["ss"]["ttma"]):
+        return {"slack": ptask.data["ss"]["slack"] - task.wcet,
+                "ttma": ptask.data["ss"]["ttma"], "cc": ceil.counter,
                 "theorems": [2]}
 
     # theorem 3
@@ -122,7 +121,6 @@ def get_slack(task, task_list, tc):
     for task in tl[:task.identifier]:
         a = floor(tc / task.deadline)
         wc += (a * task.wcet) + (task.job.actual_computation_time if task.job else 0)
-    slack_cc += wc
 
     # recursive search of points
     for tmp_task in task_list:
@@ -139,8 +137,7 @@ def get_slack(task, task_list, tc):
 
     # calculate slack in each point
     for point in ss_points:
-        s, s_cc = slackcalc(tl[:task.identifier], tc, point, wc)
-        slack_cc += s_cc
+        s = slackcalc(tl[:task.identifier], tc, point, wc)
 
         # update max_s and max_t
         if s > max_s:
