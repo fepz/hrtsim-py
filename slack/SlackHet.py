@@ -42,7 +42,6 @@ def get_slack(task, task_list, tc):
         if task_list[i].data["ss"][method_name]["blimit"] <= ii:
             if task_list[i].data["ss"][method_name]["blimit"] < ii - task_list[i].period:
                 b = floor(ii / task_list[i].period) * task_list[i].period
-                params["cc"] += 1
             else:
                 b = task_list[i].data["ss"][method_name]["blimit"]
 
@@ -118,7 +117,6 @@ def get_slack(task, task_list, tc):
     params = {
         "points": [],  # t values at which slackcalc is invoked
         "slacks": [],  # slack values calculated for each t
-        "cc": 0,
         "ss_points": [],
         "last_psi": 0,
         "het_limit": task.data["ss"]["di"],
