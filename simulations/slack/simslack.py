@@ -128,9 +128,6 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
             cc, theo = process_result(model)
             result["cc"] = cc
             result["theo"] = theo
-        else:
-            result["error"] = True
-            result["error_msg"] = "No schedulable."
 
     except (NegativeSlackException, DifferentSlackException) as exc:
         result["error"] = True
@@ -158,17 +155,16 @@ def process_result(model) -> list:
 def print_means(results: list) -> None:
     import pandas as pd
 
-    df = pd.concat([r["cc"] for r in results if not r["error"]])
+    df = pd.concat([r["cc"] for r in results if r["schedulable"] and not r["error"]])
     print(df.groupby(["Task"]).mean().to_markdown())
     print(df.aggregate(np.mean).to_markdown())
 
-    df = pd.concat([r["theo"] for r in results if not r["error"]])
+    df = pd.concat([r["theo"] for r in results if r["schedulable"] and not r["error"]])
     print(df.groupby(["Task"]).sum().to_markdown())
     print(df.aggregate(np.mean).to_markdown())
 
 
 def print_summary_of_results(results):
-    error_count = 0
     error_list = []
     schedulable_count = 0
     not_schedulable_count = 0
@@ -177,11 +173,11 @@ def print_summary_of_results(results):
             schedulable_count += 1
         else:
             not_schedulable_count += 1
+            error_list.append("RTS {:d}: not schedulable.".format(result["rts_id"]))
         if result["error"]:
-            error_count += 1
             error_list.append("RTS {:d}: {:s}".format(result["rts_id"], result["error_msg"]))
-    print("# of errors: {0:}".format(error_count))
-    if error_count > 0:
+    print("# of errors: {0:}".format(len(error_list)))
+    if error_list:
         for error_msg in error_list:
             print("\t{0:}".format(error_msg))
     print("# of schedulable systems: {0:}".format(schedulable_count))
