@@ -1,5 +1,4 @@
 import numpy as np
-from tabulate import tabulate
 from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
