@@ -66,18 +66,6 @@ def get_slack(task, task_list, tc):
                 params["last_psi"] += task_list[i].wcet
 
     method_name = "SlackHet"
-    params = {
-        "points":       [],  # t values at which slackcalc is invoked
-        "slacks":       [],  # slack values calculated for each t
-        "cc":           0,
-        "ss_points":    [],
-        "last_psi":     0,
-        "het_limit":    0,
-        "intervalo":    0,
-        "minb":         0,
-        "verbose":      False  # print trace
-    }
-
     ceil.counter = 0
     floor.counter = 0
     theorems = []
@@ -127,16 +115,22 @@ def get_slack(task, task_list, tc):
         tmp_task.data["ss"][method_name]["ignore"] = False
         tmp_task.data["ss"][method_name]["blimit"] = 0
 
-    params["last_psi"] = 0
-    params["cc"] = 0
-    params["het_limit"] = task.data["ss"]["di"]
-    params["intervalo"] = intervalo
-    params["minb"] = task.data["ss"]["di"]
+    params = {
+        "points": [],  # t values at which slackcalc is invoked
+        "slacks": [],  # slack values calculated for each t
+        "cc": 0,
+        "ss_points": [],
+        "last_psi": 0,
+        "het_limit": task.data["ss"]["di"],
+        "intervalo": intervalo,
+        "minb": task.data["ss"]["di"],
+        "verbose": False  # print trace
+    }
+
     _het_search(task_list[:task.identifier], task.identifier - 2, task.data["ss"]["di"], params)
-    ss_points = params["points"]
 
     # calculate slack in each point
-    for point in ss_points:
+    for point in params["points"]:
         s = slackcalc(tl[:task.identifier], tc, point, wc)
 
         # update max_s and max_t
@@ -146,7 +140,7 @@ def get_slack(task, task_list, tc):
 
     # print if points are duplicated
     import collections
-    dups = [item for item, count in collections.Counter(ss_points).items() if count > 1]
+    dups = [item for item, count in collections.Counter(params["points"]).items() if count > 1]
     if dups:
         print(" --- Job {} , tc {},  --- ".format(task.job.name if task.job else "?", tc))
         print("dups:", dups)
