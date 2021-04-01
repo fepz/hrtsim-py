@@ -125,9 +125,7 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
                 result["model"] = model
 
             # Process the results
-            cc, theo = process_result(model)
-            result["cc"] = cc
-            result["theo"] = theo
+            result.update(process_result(model))
 
     except (NegativeSlackException, DifferentSlackException) as exc:
         result["error"] = True
@@ -140,7 +138,7 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
     return result
 
 
-def process_result(model) -> list:
+def process_result(model) -> dict:
     import pandas as pd
 
     cc_df = pd.DataFrame(model.scheduler.data["results"]["ss-cc"])
@@ -149,7 +147,7 @@ def process_result(model) -> list:
     theo_df = pd.DataFrame(model.scheduler.data["results"]["ss-theo"])
     theo_df.index.names = ["Task"]
 
-    return [cc_df, theo_df]
+    return {"cc": cc_df, "theo": theo_df}
 
 
 def print_means(results: list) -> None:
