@@ -32,9 +32,6 @@ def get_slack(task, task_list, tc):
     ceil.counter = 0
     floor.counter = 0
 
-    slack_calcs = 0
-    points = []
-
     # theorems and corollaries applied
     theorems = []
 
@@ -79,8 +76,6 @@ def get_slack(task, task_list, tc):
 
     # calculate slack in deadline
     k2, w = slackcalc(tl[:task.identifier], tc, task.data["ss"]["di"], wc)
-    slack_calcs += 1
-    points = [task.data["ss"]["di"]]
 
     # update kmax and tmax if the slack at the deadline is bigger
     if k2 >= kmax:
@@ -91,17 +86,12 @@ def get_slack(task, task_list, tc):
             tmax = task.data["ss"]["di"]
         kmax = k2
 
-    slack_points = [(task.data["ss"]["di"], k2, w)]
-
     # calculate slack at arrival time of higher priority tasks
     for htask in tl[:(task.identifier - 1)]:
         ii = ceil(intervalo / htask.period) * htask.period
 
         while ii < task.data["ss"]["di"]:
             k2, w = slackcalc(tl[:task.identifier], tc, ii, wc)
-            slack_calcs += 1
-            points.append(ii)
-            slack_points.append((ii, k2, w))
 
             # update kmax and tmax if a greater slack value was found
             if k2 > kmax:
