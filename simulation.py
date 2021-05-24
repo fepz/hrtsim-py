@@ -34,7 +34,6 @@ def get_args():
     parser.add_argument("--scheduler", nargs=1, type=str, help="Scheduling algorithm")
     parser.add_argument("--instance-count", type=int, help="Number of task instances to simulate.")
     parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
-    parser.add_argument("--silent", action="store_true", help="Suppress output.")
     return parser.parse_args()
 
 
@@ -72,7 +71,7 @@ def main():
                 rts["schedulable"] = josephp(rts["tasks"], verbose=False)
                 calculate_k(rts["tasks"])
 
-                # Add the required fields for slack stealing simulation.
+                # Required fields for slack stealing simulation.
                 for task in rts["tasks"]:
                     task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
 

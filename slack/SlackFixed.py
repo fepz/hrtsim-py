@@ -105,4 +105,5 @@ def get_slack(task, task_list, tc):
             # next arrival
             ii += htask.period
 
+    print("{0:} {1:} {2:} {3:} {4:} {5:} Fixed".format(task.job.name.split("_")[1], task.job.name.split("_")[2], tc, kmax, tmax, ceil.counter + floor.counter))
     return {"slack": kmax, "ttma": tmax, "cc": ceil.counter + floor.counter}
