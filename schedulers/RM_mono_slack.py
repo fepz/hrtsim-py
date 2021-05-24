@@ -2,9 +2,7 @@
 Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing.
 """
 from simso.core import Scheduler
-
 from schedulers.MissedDeadlineException import MissedDeadlineException
-from schedulers.slack.SlackEvent import SlackEvent
 from slack.SlackUtils import reduce_slacks, multiple_slack_calc
 
 
@@ -47,20 +45,6 @@ class RM_mono_slack(Scheduler):
 
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
-
-        # Register simulation variables
-        results = self.sim.scheduler.data["results"]
-        if job.task._job_count <= self.sim.scheduler.data["instance_count"]:
-            for method, slack_result in ss_result["ss_results"]:
-                results["ss-cc"][(method, "cc")][(job.task.identifier, job.task._job_count)] = slack_result["cc"]
-                for theorem in slack_result["theorems"]:
-                    results["ss-theo"][(method, "theorem", theorem)][(job.task.identifier)] += 1
-
-        # Observe that a slack calculation was performed
-        job.task.monitor.observe(SlackEvent(job, ss_result, SlackEvent.CALC_SLACK))
-
-        # Log that a slack calculation was performed
-        self._sim.logger.log(job.name + " Slack calculated: {:f}".format(job.task.data["ss"]["slack"]), kernel=True)
 
         # Find system new minimum slack
         self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])

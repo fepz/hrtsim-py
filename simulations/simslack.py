@@ -1,4 +1,4 @@
-import numpy as np
+from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
@@ -30,10 +30,11 @@ class SinkMonitor(list):
         return 0
 
 
-def create_configuration(rts, params):
+def create_configuration(rts, slack_methods, instance_count):
     """
 
     :param rts:
+    :param slack_methods:
     :param instance_count:
     :return:
     """
@@ -41,13 +42,13 @@ def create_configuration(rts, params):
     configuration = Configuration()
 
     # Simulate until the lower priority task has n instantiations.
-    configuration.duration = (rts["tasks"][-1]["T"] * (params["instance_count"] + 1)) * configuration.cycles_per_ms
+    configuration.duration = (rts["tasks"][-1]["T"] * (instance_count + 1)) * configuration.cycles_per_ms
 
     # Add some extra required fields for slack stealing simulation.
     for task in rts["tasks"]:
         # Each slack method needs its own copy of A, B, C and CC (computational cost).
-        for ss_method in params["slack_methods"]:
-            task["ss"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0, 'cc': [], 'theorems': []}
+        for ss_method in slack_methods:
+            task["ss"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0}
 
     # Create the tasks and add them to the SimSo configuration.
     for task in rts["tasks"]:
@@ -59,7 +60,7 @@ def create_configuration(rts, params):
     configuration.add_processor(name="CPU 1", identifier=1)
 
     # Add a scheduler.
-    configuration.scheduler_info.filename = "schedulers/slack/RM_mono_slack.py"
+    configuration.scheduler_info.filename = "schedulers/RM_mono_slack.py"
     #configuration.scheduler_info.clas = "simso.schedulers.RM"
 
     # Check the config before trying to run it.
@@ -70,17 +71,16 @@ def create_configuration(rts, params):
 
 def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=False) -> dict:
     """
-
-    :param rts:
-    :param params:
-    :param callback:
-    :return:
+    Run the simulation of a rts.
+    :param rts: rts to simulate.
+    :param params: simulation parameters.
+    :param callback: callback to be called from simso.
+    :return: a dict with the simulation results
     """
     result = {
         "rts_id": rts["id"],
         "schedulable": rts["schedulable"],
         "error": False,
-        "cc": {}
     }
 
     try:
@@ -92,7 +92,7 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
                     callback(progress)
 
             # Create SimSo configuration and model.
-            cfg = create_configuration(rts, params["ss_methods"])
+            cfg = create_configuration(rts, params["ss_methods"], params["instance_cnt"])
 
             # Creates a SimSo model from the provided SimSo configuration.
             model = Model(cfg, private_callback if callback else None)
@@ -100,6 +100,12 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
             model.scheduler.data["slack_methods"] = params["ss_methods"]
             # Number of instances to record.
             model.scheduler.data["instance_count"] = params["instance_cnt"]
+
+            model.scheduler.data["results"] = {}
+            model.scheduler.data["results"]["ss-cc"] = {}
+            for ss_method in params["ss_methods"]:
+                model.scheduler.data["results"]["ss-cc"][(ss_method, "cc")] = {}
+            model.scheduler.data["results"]["ss-theo"] = defaultdict(lambda: defaultdict(int))
 
             # Discard trace information to reduce memory footprint
             if sink:
@@ -112,17 +118,6 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
             # Run the simulation.
             model.run_model()
 
-            # For each slack method's creates an Numpy matrix [ tasks x instances ]
-            for ss_method in params["ss_methods"]:
-                result["cc"][ss_method] = np.array([task.data["ss"][ss_method]["cc"] for task in model.task_list])
-
-            # Add model
-            if retrieve_model:
-                result["model"] = model
-        else:
-            result["error"] = True
-            result["error_msg"] = "No schedulable."
-
     except (NegativeSlackException, DifferentSlackException) as exc:
         result["error"] = True
         result["error_msg"] = str(exc)
@@ -132,3 +127,4 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
         result["error_msg"] = "Slack Method not found: {0}.".format(str(exc))
 
     return result
+

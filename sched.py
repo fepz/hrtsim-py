@@ -1,8 +1,12 @@
-import math 
+from typing import TextIO
+from functools import reduce
+from schedtests import rta, rta2, rta3, rta4, het2, josephp
+import math
+import sys
+
 
 def lcm(rts: list) -> float:
     """ Real-time system hiperperiod (l.c.m) """
-    from functools import reduce
     return reduce(lambda x, y: (x * y) // math.gcd(x, y), [task["T"] for task in rts], 1)
 
 
@@ -18,7 +22,6 @@ def liu_bound(rts: list) -> float:
 
 def bini_bound(rts):
     """ Evaluate schedulability using the hyperbolic bound """
-    from functools import reduce
     return reduce(lambda a, b: a*b, [float(task["C"]) / float(task["T"]) + 1 for task in rts])
 
 
@@ -55,18 +58,42 @@ def calculate_k(rts: list) -> None:
         task["k"] = k - 1
 
 
-def mixrange(s):
+def analyze_rts(rts: list):
     """
-    Create a list of numbers from a string. Ie: "1-3,6,8-10" into [1,2,3,6,8,9,10]
-    :param s: a string
-    :return: a list of numbers
+    Analyze the RTS u, lcm and schedulability
+    :param rts: rts
+    :return: None
     """
-    r = []
-    for i in s.split(','):
-        if '-' not in i:
-            r.append(int(i))
-        else:
-            l, h = map(int, i.split('-'))
-            r += range(l, h+1)
-    return r
+    rta(rts)
+    rta2(rts)
+    rta3(rts)
+    rta4(rts)
+    het2(rts)
+    josephp(rts)
 
+
+def main():
+    flag = False
+
+    param_keys = ["C", "T", "D"]
+
+    l = []
+    for line in sys.stdin.readlines():
+        if not flag:
+            n = int(line)
+            flag = True
+            l = []
+        else:
+            task = {}
+            params = line.split()
+            for k, v in zip(param_keys, params):
+                task[k] = int(v)
+            l.append(task)
+            n = n - 1
+            if n == 0:
+                flag = False
+                analyze_rts(l)
+
+
+if __name__ == '__main__':
+    main()

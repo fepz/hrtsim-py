@@ -1,100 +1,25 @@
+#!python
+
 from typing import TextIO
-from functools import reduce
+from argparse import ArgumentParser, FileType
 import xml.etree.cElementTree as et
-import math
+import sys
 
 
-def lcm(rts: list) -> float:
-    """ Real-time system hiperperiod (l.c.m) """
-    return reduce(lambda x, y: (x * y) // math.gcd(x, y), [task["T"] for task in rts], 1)
-
-
-def uf(rts: list) -> float:
-    """ Real-time system utilization factor """
-    return sum([float(task["C"]) / float(task["T"]) for task in rts])
-
-
-def liu_bound(rts: list) -> float:
-    """ Evaluate schedulability using the Liu & Layland bound """
-    return len(rts) * (pow(2, 1.0 / float(len(rts))) - 1)
-
-
-def bini_bound(rts):
-    """ Evaluate schedulability using the hyperbolic bound """
-    return reduce(lambda a, b: a*b, [float(task["C"]) / float(task["T"]) + 1 for task in rts])
-
-
-def joseph_wcrt(rts: list):
-    """ Calcula el WCRT de cada tarea del str y evalua la planificabilidad """
-    schedulable = True
-    rts[0]["R"] = rts[0]["C"]
-    for i, task in enumerate(rts[1:], 1):
-        r = 1
-        c, t, d = task["C"], task["T"], task["D"]
-        while schedulable:
-            w = 0
-            for taskp in rts[:i]:
-                cp, tp = taskp["C"], taskp["T"]
-                w += math.ceil(float(r) / float(tp)) * cp
-            w = c + w
-            if r == w:
-                break
-            r = w
-            if r > d:
-                schedulable = False
-        task["R"] = r
-    return schedulable
-
-
-def first_free_slot(rts: list):
-    """ Calcula primer instante que contiene un slot libre por subsistema """
-    free = [0] * len(rts)
-    for i, task in enumerate(rts, 0):
-        r = 1
-        while True:
-            w = 0
-            for taskp in rts[:i + 1]:
-                c, t = taskp[0], taskp[1]
-                w += math.ceil(float(r) / float(t)) * float(c)
-            w = w + 1
-            if r == w:
-                break
-            r = w
-        free[i] = r
-    return free
-
-
-def calculate_k(rts: list) -> None:
-    """ Calcula el K de cada tarea (maximo retraso en el instante critico) """
-    rts[0]["k"] = rts[0]["T"] - rts[0]["C"]
-
-    for i, task in enumerate(rts[1:], 1):
-        t = 0
-        k = 1
-        while t <= task["D"]:
-            w = k + task["C"] + sum([math.ceil(float(t) / float(taskp["T"]))*taskp["C"] for taskp in rts[:i]])
-            if t == w:
-                k += 1
-            t = w
-        task["k"] = k - 1
-
-
-def analyze_rts(rts: dict):
+def mixrange(s):
     """
-    Analyze the RTS and complete fields
-    :param rts: rts
-    :return: None
+    Create a list of numbers from a string. Ie: "1-3,6,8-10" into [1,2,3,6,8,9,10]
+    :param s: a string
+    :return: a list of numbers
     """
-    rts["fu"] = uf(rts["tasks"])
-    rts["lcm"] = lcm(rts["tasks"])
-    rts["liu"] = liu_bound(rts["tasks"])
-    rts["bini"] = bini_bound(rts["tasks"])
-    rts["schedulable"] = joseph_wcrt(rts["tasks"])
-    calculate_k(rts["tasks"])
-
-    # Add the required fields for slack stealing simulation.
-    for task in rts["tasks"]:
-        task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
+    r = []
+    for i in s.split(','):
+        if '-' not in i:
+            r.append(int(i))
+        else:
+            l, h = map(int, i.split('-'))
+            r += range(l, h+1)
+    return r
 
 
 def get_from_xml(file: TextIO, rts_id_list: list):
@@ -138,7 +63,6 @@ def get_from_xml(file: TextIO, rts_id_list: list):
 
             root.clear()
 
-        analyze_rts(rts)
         yield rts
     del context
 
@@ -197,3 +121,32 @@ def get_from_file(file: TextIO, ids: list):
         return get_from_xml(file, ids)
     if file_type == '.json':
         return get_from_json(file, ids)
+
+
+def format(rts: dict):
+    print("{0:}".format(len(rts["tasks"])))
+    for task in rts["tasks"]:  
+        print("{0:} {1:} {2:}".format(task["C"], task["T"], task["D"]))
+
+
+def get_args():
+    """ Command line arguments """
+    parser = ArgumentParser()
+    parser.add_argument("--file", type=FileType('r'), help="File with RTS.")
+    parser.add_argument("--rts", type=str, help="RTS number inside file.")
+    return parser.parse_args()
+
+
+def main():
+    if not len(sys.argv) > 1:
+        print("Error: no arguments.", file=sys.stderr)
+        sys.exit()
+
+    args = get_args()
+
+    rts_list = mixrange(args.rts)
+    for rts in get_from_file(args.file, rts_list):
+        format(rts)
+
+if __name__ == '__main__':
+    main()
