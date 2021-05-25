@@ -78,7 +78,7 @@ def get_rts(file: TextIO):
 
     flag = False
 
-    for line in file.readlines():#sys.stdin.readlines():
+    for line in file.readlines():
         if not flag:
             number_of_tasks = int(line)
             flag = True

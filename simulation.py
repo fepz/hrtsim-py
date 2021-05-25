@@ -21,6 +21,13 @@ def run_single_simulation(rts, args):
         "ss_methods": args.ss_methods,
     }
 
+    rts["schedulable"] = josephp(rts["tasks"], verbose=False)
+    calculate_k(rts["tasks"])
+
+    # Required fields for slack stealing simulation.
+    for task in rts["tasks"]:
+        task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
+
     sim_result = run_sim(rts, params, callback=None, sink=True, retrieve_model=True)
 
     if sim_result["error"]:
@@ -45,13 +52,6 @@ def main():
     args = get_args()
 
     for rts in get_rts(sys.stdin):
-        rts["schedulable"] = josephp(rts["tasks"], verbose=False)
-        calculate_k(rts["tasks"])
-
-        # Required fields for slack stealing simulation.
-        for task in rts["tasks"]:
-            task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
-
         run_single_simulation(rts, args)
 
 
