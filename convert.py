@@ -123,9 +123,9 @@ def get_args():
 
 
 def main():
-    if not len(sys.argv) > 1:
+    if len(sys.argv) == 1:
         print("Error: no arguments.", file=sys.stderr)
-        sys.exit()
+        sys.exit(1)
 
     args = get_args()
 
