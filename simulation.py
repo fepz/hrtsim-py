@@ -2,7 +2,7 @@
 
 from simulations.simslack import run_sim
 from argparse import ArgumentParser
-from utils import calculate_k
+from utils import calculate_k, get_rts
 from schedtests import josephp
 import math
 import sys
@@ -44,38 +44,15 @@ def main():
 
     args = get_args()
 
-    param_keys = ["C", "T", "D"]
+    for rts in get_rts(sys.stdin):
+        rts["schedulable"] = josephp(rts["tasks"], verbose=False)
+        calculate_k(rts["tasks"])
 
-    rts = {"id": 0, "tasks": []}
-    flag = False
-    for line in sys.stdin.readlines():
-        if not flag:
-            number_of_tasks = int(line)
-            flag = True
-            rts["tasks"] = []
-            task_counter = 0
-        else:
-            task = {}
-            number_of_tasks -= 1
-            task_counter += 1
-            params = line.split()
-            
-            for k, v in zip(param_keys, params):
-                task[k] = int(v)
-            task["nro"] = task_counter
-            rts["tasks"].append(task)
+        # Required fields for slack stealing simulation.
+        for task in rts["tasks"]:
+            task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
 
-            if number_of_tasks == 0:
-                flag = False
-
-                rts["schedulable"] = josephp(rts["tasks"], verbose=False)
-                calculate_k(rts["tasks"])
-
-                # Required fields for slack stealing simulation.
-                for task in rts["tasks"]:
-                    task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
-
-                run_single_simulation(rts, args)
+        run_single_simulation(rts, args)
 
 
 if __name__ == '__main__':

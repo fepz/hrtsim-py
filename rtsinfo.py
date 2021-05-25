@@ -1,3 +1,5 @@
+#!python
+
 from argparse import ArgumentParser
 from argparse import ArgumentParser
 from schedtests import rta
@@ -41,26 +43,8 @@ def get_args():
 def main():
     args = get_args()
 
-    flag = False
-
-    param_keys = ["C", "T", "D"]
-
-    l = []
-    for line in sys.stdin.readlines():
-        if not flag:
-            n = int(line)
-            flag = True
-            l = []
-        else:
-            task = {}
-            params = line.split()
-            for k, v in zip(param_keys, params):
-                task[k] = int(v)
-            l.append(task)
-            n = n - 1
-            if n == 0:
-                flag = False
-                analyze_rts(l, args.show_tasks)
+    for rts in utils.get_rts(sys.stdin):
+        analyze_rts(rts["tasks"], args.show_tasks)
 
 
 if __name__ == '__main__':

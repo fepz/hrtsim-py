@@ -1,3 +1,4 @@
+from typing import TextIO
 import math 
 
 def lcm(rts: list) -> float:
@@ -69,4 +70,33 @@ def mixrange(s):
             l, h = map(int, i.split('-'))
             r += range(l, h+1)
     return r
+
+def get_rts(file: TextIO):
+    param_keys = ["C", "T", "D"]
+
+    rts = {"id": 0, "tasks": []}
+
+    flag = False
+
+    for line in file.readlines():#sys.stdin.readlines():
+        if not flag:
+            number_of_tasks = int(line)
+            flag = True
+            rts["tasks"] = []
+            task_counter = 0
+        else:
+            task = {}
+            number_of_tasks -= 1
+            task_counter += 1
+            params = line.split()
+            
+            for k, v in zip(param_keys, params):
+                task[k] = int(v)
+            task["nro"] = task_counter
+            rts["tasks"].append(task)
+
+            if number_of_tasks == 0:
+                flag = False
+
+                yield rts
 
