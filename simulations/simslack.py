@@ -6,7 +6,7 @@ from slack.SlackExceptions import NegativeSlackException, DifferentSlackExceptio
 
 class SinkLogger(object):
     """
-    Simple logger. Every message is logged with its date.
+    Simple logger. Every message is discarded.
     """
     def __init__(self, sim):
         return
