@@ -69,7 +69,7 @@ def create_configuration(rts, slack_methods, instance_count):
     return configuration
 
 
-def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=False) -> dict:
+def run_sim(params: dict, callback=None, sink=True, retrieve_model=False) -> dict:
     """
     Run the simulation of a rts.
     :param rts: rts to simulate.
@@ -78,13 +78,11 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
     :return: a dict with the simulation results
     """
     result = {
-        "rts_id": rts["id"],
-        "schedulable": rts["schedulable"],
         "error": False,
     }
 
     try:
-        if rts["schedulable"]:
+        if params["rts"]["schedulable"]:
             # Callback
             def private_callback(clock):
                 if callback:
@@ -92,7 +90,7 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
                     callback(progress)
 
             # Create SimSo configuration and model.
-            cfg = create_configuration(rts, params["ss_methods"], params["instance_count"])
+            cfg = create_configuration(params["rts"], params["ss_methods"], params["instance_count"])
 
             # Creates a SimSo model from the provided SimSo configuration.
             model = Model(cfg, private_callback if callback else None)

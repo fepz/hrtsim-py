@@ -16,11 +16,7 @@ def run_single_simulation(rts, args):
     :return: None
     """
 
-    params = {
-        "instance_count": args.instance_count,
-        "ss_methods": args.ss_methods,
-    }
-
+    # Evaluate schedulability and K values.
     rts["schedulable"] = josephp(rts["tasks"], verbose=False)
     calculate_k(rts["tasks"])
 
@@ -28,7 +24,13 @@ def run_single_simulation(rts, args):
     for task in rts["tasks"]:
         task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
 
-    sim_result = run_sim(rts, params, callback=None, sink=True, retrieve_model=True)
+    params = {
+        "rts": rts,
+        "instance_count": args.instance_count,
+        "ss_methods": args.ss_methods,
+    }
+
+    sim_result = run_sim(params, callback=None, sink=True, retrieve_model=True)
 
     if sim_result["error"]:
         print("Simulation failed: {0}".format(sim_result["error_msg"]))
