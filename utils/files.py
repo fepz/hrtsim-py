@@ -2,7 +2,7 @@ from typing import TextIO
 import xml.etree.cElementTree as et
 import sys
 
-def get_from_xml(file: TextIO, rts_id_list: list):
+def get_from_xml(file: TextIO, rts_id_list: list) -> dict:
     """
     Retrieve the specified rts from a xml file
     :param file: file object handle
@@ -47,7 +47,7 @@ def get_from_xml(file: TextIO, rts_id_list: list):
     del context
 
 
-def get_from_json(file: TextIO, ids: list) -> list:
+def get_from_json(file: TextIO, ids: list) -> dict:
     """
     Retrieve the specified rts from a json file
     :param file: file object handle
@@ -88,7 +88,42 @@ def get_from_json(file: TextIO, ids: list) -> list:
         yield rts
 
 
-def get_from_file(file: TextIO, ids: list):
+def get_from_txt(file: TextIO) -> dict:
+    param_keys = ["C", "T", "D"]
+
+    rts = {"id": 0, "tasks": []}
+
+    flag = False
+
+    rts_counter = 0
+
+    for line in file.readlines():
+        if not flag:
+            number_of_tasks = int(line)
+            flag = True
+            rts_counter += 1
+            rts["id"] = rts_counter
+            rts["tasks"] = []
+            task_counter = 0
+        else:
+            task = {}
+            number_of_tasks -= 1
+            task_counter += 1
+            params = line.split()
+            
+            for k, v in zip(param_keys, params):
+                task[k] = int(v)
+            task["nro"] = task_counter
+            rts["tasks"].append(task)
+
+            if number_of_tasks == 0:
+                flag = False
+
+                yield rts
+
+
+
+def get_from_file(file: TextIO, ids: list = []) -> dict:
     """
     Retrieve the specified rts from file.
     :param file: an object file
@@ -101,4 +136,8 @@ def get_from_file(file: TextIO, ids: list):
         return get_from_xml(file, ids)
     if file_type == '.json':
         return get_from_json(file, ids)
+    if file_type == '.txt':
+        return get_from_txt(file)
+    else:
+        return get_from_txt(file)
 

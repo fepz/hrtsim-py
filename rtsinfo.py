@@ -1,9 +1,9 @@
 #!python
 
-from argparse import ArgumentParser
-from argparse import ArgumentParser
+from argparse import ArgumentParser, FileType
 from schedtests import rta
-import utils
+from utils.files import get_from_file
+from utils.rts import mixrange, uf, lcm, liu_bound, bini_bound
 import sys
 
 
@@ -26,25 +26,29 @@ def analyze_rts(rts: list, detail: bool):
     print("tasks:\t{0:}".format(len(rts)))
     if detail:
         print_tasks(rts)
-    print("u:\t{0:}".format(utils.uf(rts)))
-    print("lcm:\t{0:}".format(utils.lcm(rts)))
-    print("liu:\t{0:}".format(utils.liu_bound(rts)))
-    print("bini:\t{0:}".format(utils.bini_bound(rts)))
+    print("u:\t{0:}".format(uf(rts)))
+    print("lcm:\t{0:}".format(lcm(rts)))
+    print("liu:\t{0:}".format(liu_bound(rts)))
+    print("bini:\t{0:}".format(bini_bound(rts)))
     print("sched:\t{0:}".format(rta(rts, verbose=False)[0]))
 
 
 def get_args():
     """ Command line arguments """
     parser = ArgumentParser()
+    parser.add_argument("file", nargs='?', type=FileType('r'), default=sys.stdin, help="File with RTS.")
+    parser.add_argument("--rts", type=str, help="RTS number inside file.", default="1")
     parser.add_argument("--show-tasks", default=False, action="store_true", help="Show task parameters.")
     return parser.parse_args()
 
 
 def main():
     args = get_args()
-
-    for rts in utils.get_rts(sys.stdin):
-        analyze_rts(rts["tasks"], args.show_tasks)
+    try:
+        for rts in get_from_file(args.file, mixrange(args.rts)):
+            analyze_rts(rts["tasks"], args.show_tasks)
+    except KeyboardInterrupt:
+        sys.exit(1)
 
 
 if __name__ == '__main__':

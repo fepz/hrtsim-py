@@ -3,12 +3,13 @@
 import pandas as pd
 import numpy as np
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, FileType
 
 
 def get_args(options):
     """ Command line arguments """
     parser = ArgumentParser()
+    parser.add_argument("file", nargs="?", default=sys.stdin, type=FileType('r'), help="File with results.")
     parser.add_argument("--test", type=str, choices=options, default=options[0], help="Test to process.")
     return parser.parse_args()
 

@@ -4,7 +4,6 @@ from typing import TextIO
 from argparse import ArgumentParser, FileType
 from utils.files import get_from_file
 from utils.rts import mixrange
-import xml.etree.cElementTree as et
 import sys
 
 
@@ -14,24 +13,23 @@ def format(rts: dict):
         print("{0:} {1:} {2:}".format(task["C"], task["T"], task["D"]))
 
 
+def convert_files(file: TextIO, ids: list) -> None:
+    for rts in get_from_file(file, ids):
+        format(rts)
+
+
 def get_args():
     """ Command line arguments """
-    parser = ArgumentParser()
-    parser.add_argument("--file", type=FileType('r'), help="File with RTS.")
-    parser.add_argument("--rts", type=str, help="RTS number inside file.")
+    parser = ArgumentParser(description="Convert from XML or JSON to TXT format.")
+    parser.add_argument("file", nargs='?', type=FileType('r'), default=sys.stdin, help="File with RTS.")
+    parser.add_argument("--rts", type=str, help="RTS number inside file.", default="1")
     return parser.parse_args()
 
 
 def main():
-    if len(sys.argv) == 1:
-        print("Error: no arguments.", file=sys.stderr)
-        sys.exit(1)
-
     args = get_args()
 
-    rts_list = mixrange(args.rts)
-    for rts in get_from_file(args.file, rts_list):
-        format(rts)
+    convert_files(args.file, mixrange(args.rts))
 
 if __name__ == '__main__':
     main()

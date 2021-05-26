@@ -1,6 +1,7 @@
 #!python
-from argparse import ArgumentParser
-from utils import calculate_k
+from argparse import ArgumentParser, FileType
+from utils.rts import calculate_k, mixrange
+from utils.files import get_from_file
 from schedtests import josephp
 import sys
 
@@ -12,6 +13,7 @@ def format(rts: dict):
 
 
 def filter(args, rts: dict):
+    rts["schedulable"] = josephp(rts["tasks"], verbose=False)
     if args.sched:
         if rts["schedulable"]:
             format(rts)
@@ -19,45 +21,21 @@ def filter(args, rts: dict):
 
 def get_args():
     """ Command line arguments """
-    parser = ArgumentParser()
+    parser = ArgumentParser(description="Filter RTS from file.")
+    parser.add_argument("file", nargs='?', type=FileType('r'), default=sys.stdin, help="File with RTS.")
     parser.add_argument("--sched", action="store_true", default=True, help="Scheduling algorithm")
+    parser.add_argument("--rts", type=str, help="RTS number inside file.", default="1")
     return parser.parse_args()
 
 
 def main():
-    if not len(sys.argv) > 1:
-        print("Error: no arguments.", file=sys.stderr)
-        sys.exit()
-
     args = get_args()
 
-    param_keys = ["C", "T", "D"]
-
-    rts = {"id": 0, "tasks": []}
-
-    flag = False
-
-    for line in sys.stdin.readlines():
-        if not flag:
-            number_of_tasks = int(line)
-            flag = True
-            rts["tasks"] = []
-            task_counter = 0
-        else:
-            task = {}
-            number_of_tasks -= 1
-            task_counter += 1
-            params = line.split()
-            
-            for k, v in zip(param_keys, params):
-                task[k] = int(v)
-            task["nro"] = task_counter
-            rts["tasks"].append(task)
-
-            if number_of_tasks == 0:
-                flag = False
-                rts["schedulable"] = josephp(rts["tasks"], verbose=False)
-                filter(args, rts)
+    try:
+        for rts in get_from_file(args.file, mixrange(args.rts)):
+            filter(args, rts)
+    except KeyboardInterrupt:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
