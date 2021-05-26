@@ -17,7 +17,7 @@ def run_single_simulation(rts, args):
     """
 
     params = {
-        "instance_cnt": args.instance_count,
+        "instance_count": args.instance_count,
         "ss_methods": args.ss_methods,
     }
 

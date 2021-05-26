@@ -92,14 +92,14 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
                     callback(progress)
 
             # Create SimSo configuration and model.
-            cfg = create_configuration(rts, params["ss_methods"], params["instance_cnt"])
+            cfg = create_configuration(rts, params["ss_methods"], params["instance_count"])
 
             # Creates a SimSo model from the provided SimSo configuration.
             model = Model(cfg, private_callback if callback else None)
             # Add the slack methods to evaluate.
             model.scheduler.data["slack_methods"] = params["ss_methods"]
             # Number of instances to record.
-            model.scheduler.data["instance_count"] = params["instance_cnt"]
+            model.scheduler.data["instance_count"] = params["instance_count"]
 
             model.scheduler.data["results"] = {}
             model.scheduler.data["results"]["ss-cc"] = {}
