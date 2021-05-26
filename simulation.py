@@ -32,7 +32,7 @@ def run_simulation(rts, args):
         "gantt": args.gantt
     }
 
-    sim_result = run_sim(params, callback=None, retrieve_model=True)
+    sim_result = run_sim(params)
 
     if sim_result["error"]:
         print("Error: RTS {0}, {1}".format(rts["id"], sim_result["error_msg"]), file=sys.stderr)

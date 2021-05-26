@@ -69,7 +69,7 @@ def create_configuration(rts, slack_methods, instance_count):
     return configuration
 
 
-def run_sim(params: dict, callback=None, retrieve_model=False) -> dict:
+def run_sim(params: dict) -> dict:
     """
     Run the simulation of a rts.
     :param rts: rts to simulate.
@@ -83,17 +83,11 @@ def run_sim(params: dict, callback=None, retrieve_model=False) -> dict:
 
     try:
         if params["rts"]["schedulable"]:
-            # Callback
-            def private_callback(clock):
-                if callback:
-                    progress = int((clock / cfg.duration) * 10)
-                    callback(progress)
-
             # Create SimSo configuration and model.
             cfg = create_configuration(params["rts"], params["ss_methods"], params["instance_count"])
 
             # Creates a SimSo model from the provided SimSo configuration.
-            model = Model(cfg, private_callback if callback else None)
+            model = Model(cfg)
             # Add the slack methods to evaluate.
             model.scheduler.data["slack_methods"] = params["ss_methods"]
             # Number of instances to record.
