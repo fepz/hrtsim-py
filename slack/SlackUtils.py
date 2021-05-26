@@ -1,5 +1,5 @@
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
-from slack import SlackFixed, SlackFixed15, SlackDavis, SlackFixed2, SlackHet, SlackFast
+from slack import SlackFixed, SlackFixed15, SlackDavis, SlackFixed2, SlackHet, SlackFast, SlackFast2
 
 
 def get_slack_methods():
@@ -8,6 +8,7 @@ def get_slack_methods():
                      "Fixed": SlackFixed.get_slack,
                      "SlackHet": SlackHet.get_slack,
                      "Fast": SlackFast.get_slack,
+                     "Fast2": SlackFast2.get_slack,
                      "Davis": SlackDavis.get_slack}
     return slack_methods
 
