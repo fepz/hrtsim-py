@@ -236,6 +236,4 @@ def get_slack(task, task_list, tc):
                     t1 = tmas
                 t = tmas
 
-    print("{0:} {1:} {2:} {3:} {4:} {5:} Fast2".format(task.job.name.split("_")[1], task.job.name.split("_")[2], tc, kmax, tmax, ceil.counter + floor.counter))
-
     return {"slack": kmax, "ttma": tmax, "cc": ceil.counter + floor.counter, "theorems": theorems}

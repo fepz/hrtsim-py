@@ -143,6 +143,4 @@ def get_slack(task, task_list, tc):
         print(" --- Job {} , tc {},  --- ".format(task.job.name if task.job else "?", tc))
         print("dups:", dups)
 
-    print("{0:} {1:} {2:} {3:} {4:} {5:} SlackHet".format(task.job.name.split("_")[1], task.job.name.split("_")[2], tc, max_s, max_t, ceil.counter + floor.counter))
-
     return {"slack": max_s, "ttma": max_t, "cc": ceil.counter + floor.counter, "theorems": theorems}

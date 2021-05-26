@@ -116,6 +116,5 @@ def run_sim(params: dict) -> dict:
         if params["gantt"]:
             result["model"] = model
 
-
     return result
 
