@@ -33,7 +33,7 @@ def run_single_simulation(rts, args):
     sim_result = run_sim(params, callback=None, sink=True, retrieve_model=True)
 
     if sim_result["error"]:
-        print("Simulation failed: {0}".format(sim_result["error_msg"]))
+        print("Error: {0}".format(sim_result["error_msg"]))
         sys.exit(1)
 
 
