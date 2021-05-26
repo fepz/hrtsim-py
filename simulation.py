@@ -9,7 +9,7 @@ import math
 import sys
 
 
-def run_single_simulation(rts, args):
+def run_simulation(rts, args):
     """
     Simulate an rts
     :param rts: task set
@@ -65,7 +65,7 @@ def main():
 
     try:
         for rts in get_from_file(args.file, mixrange(args.rts)):
-            run_single_simulation(rts, args)
+            run_simulation(rts, args)
     except KeyboardInterrupt:
         sys.exit(1)
 
