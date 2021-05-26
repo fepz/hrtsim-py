@@ -78,10 +78,14 @@ def get_rts(file: TextIO):
 
     flag = False
 
+    rts_counter = 0
+
     for line in file.readlines():
         if not flag:
             number_of_tasks = int(line)
             flag = True
+            rts_counter += 1
+            rts["id"] = rts_counter
             rts["tasks"] = []
             task_counter = 0
         else:
