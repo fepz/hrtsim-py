@@ -29,14 +29,22 @@ def run_single_simulation(rts, args):
         "rts": rts,
         "instance_count": args.instance_count,
         "ss_methods": args.ss_methods,
+        "gantt": args.gantt
     }
 
-    sim_result = run_sim(params, callback=None, sink=True, retrieve_model=True)
+    sim_result = run_sim(params, callback=None, retrieve_model=True)
 
     if sim_result["error"]:
         print("Error: RTS {0}, {1}".format(rts["id"], sim_result["error_msg"]), file=sys.stderr)
         if args.exit_on_error:
             sys.exit(1)
+
+    if args.gantt:
+        from gui.gantt import create_gantt_window
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication(sys.argv)
+        ex = create_gantt_window(sim_result["model"])
+        return app.exec_()
 
 
 def get_args():
@@ -47,6 +55,7 @@ def get_args():
     parser.add_argument("--scheduler", nargs=1, type=str, help="Scheduling algorithm")
     parser.add_argument("--instance-count", type=int, default=5, help="Number of task instances to simulate.")
     parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
+    parser.add_argument("--gantt", action="store_true", default=False, help="Show scheduling gantt.")
     parser.add_argument("--exit-on-error", default=False, action="store_true", help="Exit if simulation error.")
     return parser.parse_args()
 

@@ -69,7 +69,7 @@ def create_configuration(rts, slack_methods, instance_count):
     return configuration
 
 
-def run_sim(params: dict, callback=None, sink=True, retrieve_model=False) -> dict:
+def run_sim(params: dict, callback=None, retrieve_model=False) -> dict:
     """
     Run the simulation of a rts.
     :param rts: rts to simulate.
@@ -100,7 +100,7 @@ def run_sim(params: dict, callback=None, sink=True, retrieve_model=False) -> dic
             model.scheduler.data["instance_count"] = params["instance_count"]
 
             # Discard trace information to reduce memory footprint
-            if sink:
+            if not params["gantt"]:
                 model._logger = SinkLogger(model)
                 for task in model.scheduler.task_list:
                     task._monitor = SinkMonitor()
@@ -117,6 +117,11 @@ def run_sim(params: dict, callback=None, sink=True, retrieve_model=False) -> dic
     except KeyError as exc:
         result["error"] = True
         result["error_msg"] = "Slack Method not found: {0}.".format(str(exc))
+
+    finally:
+        if params["gantt"]:
+            result["model"] = model
+
 
     return result
 
