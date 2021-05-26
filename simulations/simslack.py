@@ -101,12 +101,6 @@ def run_sim(rts: dict, params: dict, callback=None, sink=True, retrieve_model=Fa
             # Number of instances to record.
             model.scheduler.data["instance_count"] = params["instance_count"]
 
-            model.scheduler.data["results"] = {}
-            model.scheduler.data["results"]["ss-cc"] = {}
-            for ss_method in params["ss_methods"]:
-                model.scheduler.data["results"]["ss-cc"][(ss_method, "cc")] = {}
-            model.scheduler.data["results"]["ss-theo"] = defaultdict(lambda: defaultdict(int))
-
             # Discard trace information to reduce memory footprint
             if sink:
                 model._logger = SinkLogger(model)
