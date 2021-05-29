@@ -74,7 +74,7 @@ def get_slack(task, task_list, tc):
                 tmin = b1
 
             if di > b1:
-                if b1 > tmas:
+                if b1 >= tmas:
                     if htask.data["ss"]["Fast2"]["c"] != b1:
                         slack_tmp, slackcalc_cc = slackcalc(tasks, tc, b1, wc)
                         #points.append(b1)
@@ -134,8 +134,8 @@ def get_slack(task, task_list, tc):
 
     # 2021 -- new method
     new_interval = (floor(task.data["ss"]["di"] / htask.period) * htask.period) - htask.data["R"] + htask.wcet
-    if (htask.data["R"] - htask.wcet) == 0:
-        new_interval -= htask.period - htask.wcet - htask.wcet
+    #if (htask.data["R"] - htask.wcet) == 0:
+        #new_interval -= htask.period - htask.wcet - htask.wcet
 
     if pub2021:
         print("\nFast2:")
