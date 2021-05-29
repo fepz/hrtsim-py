@@ -43,8 +43,10 @@ class RM_mono_slack(Scheduler):
         # calculate task slack
         ss_result = multiple_slack_calc(tc, job, self.task_list, self.data["slack_methods"])
 
+        # print the slack results to stdout
         for k, v in ss_result["ss_results"]:
-            print("{0:} {1:} {2:} {3:} {4:} {5:} {6:}".format(job.name.split("_")[1], job.name.split("_")[2], tc, v["slack"], v["ttma"], v["cc"], k))
+            print("{0:} {1:} {2:} {3:} {4:} {5:} {6:} {7:}".format(job.name.split("_")[1], job.name.split("_")[2],
+                                                              tc, v["slack"], v["ttma"], v["cc"], v["interval_length"], k))
 
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]

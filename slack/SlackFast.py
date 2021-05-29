@@ -108,7 +108,7 @@ def get_slack(task, task_list, tc):
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
         return {"slack": task.data["ss"]["di"] - tc - task.data["R"], "ttma": task.data["ss"]["di"], "cc": ceil.counter,
-                "theorems": []}
+                "theorems": [], "interval_length": 0}
 
     # sort the task list by period (RM)
     tl = sorted(task_list, key=lambda x: x.period)
@@ -122,7 +122,7 @@ def get_slack(task, task_list, tc):
     # corollary 5 (theorem 13) for RM
     if htask.data["ss"]["di"] + htask.wcet >= task.data["ss"]["di"] >= htask.data["ss"]["ttma"]:
         return {"slack": htask.data["ss"]["slack"] - task.wcet, "ttma": htask.data["ss"]["ttma"], "cc": ceil.counter,
-                "theorems": [5]}
+                "theorems": [5], "interval_length": 0}
 
     # theorem 10
     interval = task.data["ss"]["di"] - task.data["R"] + task.wcet
@@ -209,4 +209,5 @@ def get_slack(task, task_list, tc):
                     t1 = tmas
                 t = tmas
 
-    return {"slack": kmax, "ttma": tmax, "cc": ceil.counter + floor.counter, "theorems": theorems}
+    return {"slack": kmax, "ttma": tmax, "cc": ceil.counter + floor.counter, "theorems": theorems,
+            "interval_length": task.data["ss"]["di"] - interval}
