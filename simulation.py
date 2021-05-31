@@ -23,7 +23,8 @@ def run_simulation(rts, args):
 
     # Required fields for slack stealing simulation.
     for task in rts["tasks"]:
-        task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0, 'ii': 0}
+        task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 
+                'last_psi': 0, 'last_slack': 0, 'ii': 0}
 
     params = {
         "rts": rts,
@@ -46,6 +47,8 @@ def run_simulation(rts, args):
         ex = create_gantt_window(sim_result["model"])
         return app.exec_()
 
+    return sim_result["error"]
+
 
 def get_args():
     """ Command line arguments """
@@ -64,9 +67,13 @@ def main():
     args = get_args()
 
     try:
+        error = False
         for rts in get_from_file(args.file, mixrange(args.rts)):
-            run_simulation(rts, args)
+            error |= run_simulation(rts, args)
     except KeyboardInterrupt:
+        sys.exit(1)
+
+    if error:
         sys.exit(1)
 
 
