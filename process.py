@@ -20,7 +20,7 @@ def main():
     args = get_args(options)
 
     if args.test == options[0]:
-        columns = ["Task", "Instance", "tc", "slack", "ttma", "cc", "Method"]
+        columns = ["Task", "Instance", "tc", "slack", "ttma", "cc", "int_length", "Method"]
         df = pd.read_csv(sys.stdin, header=None, sep=' ')
         df.columns = columns
         print(df.groupby(["Task", "Method"]).mean().to_markdown())
