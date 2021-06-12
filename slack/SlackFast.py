@@ -59,6 +59,7 @@ def get_slack(task, task_list, tc):
         slack_calcs = 0
 
         remain_htasks = []
+        points = []
 
         for htask in htasks:
             a1 = htask.data["ss"]["Fast"]["a"]
@@ -77,7 +78,7 @@ def get_slack(task, task_list, tc):
                 if b1 > tmas:
                     if htask.data["ss"]["Fast"]["c"] != b1:
                         slack_tmp, slackcalc_cc = slackcalc(tasks, tc, b1, wc)
-                        #points.append(b1)
+                        points.append(b1)
                         cc += slackcalc_cc
                         slack_calcs += 1
 
@@ -92,12 +93,12 @@ def get_slack(task, task_list, tc):
                 htask.data["ss"]["Fast"]["c"] = b1
                 remain_htasks.append(htask)
 
-        return tmin, tmax, smax, remain_htasks, cc, slack_calcs
+        return tmin, tmax, smax, remain_htasks, cc, slack_calcs, points
 
     ceil.counter = 0
     floor.counter = 0
 
-    points = []
+    ss_points = []
 
     # theorems and corollaries applied
     theorems = []
@@ -108,7 +109,7 @@ def get_slack(task, task_list, tc):
     # if it is the max priority task, the slack is trivial
     if task.identifier == 1:
         return {"slack": task.data["ss"]["di"] - tc - task.data["R"], "ttma": task.data["ss"]["di"], "cc": ceil.counter,
-                "theorems": [], "interval_length": 0}
+                "theorems": [], "interval_length": 0, "slack_calcs": 0, "points": [], "interval": 0}
 
     # sort the task list by period (RM)
     tl = sorted(task_list, key=lambda x: x.period)
@@ -122,7 +123,7 @@ def get_slack(task, task_list, tc):
     # corollary 5 (theorem 13) for RM
     if htask.data["ss"]["di"] + htask.wcet >= task.data["ss"]["di"] >= htask.data["ss"]["ttma"]:
         return {"slack": htask.data["ss"]["slack"] - task.wcet, "ttma": htask.data["ss"]["ttma"], "cc": ceil.counter,
-                "theorems": [5], "interval_length": 0}
+                "theorems": [5], "interval_length": 0, "slack_calcs": 0, "points": [], "interval": 0}
 
     # theorem 10
     interval = task.data["ss"]["di"] - task.data["R"] + task.wcet
@@ -147,7 +148,7 @@ def get_slack(task, task_list, tc):
     # calculate slack in deadline
     k2, slackcalc_cc = slackcalc(tl[:task.identifier], tc, task.data["ss"]["di"], wc)
     slack_calcs = 1
-    points.append(task.data["ss"]["di"])
+    ss_points.append(task.data["ss"]["di"])
 
     if k2 >= kmax:
         if k2 == kmax:
@@ -170,14 +171,23 @@ def get_slack(task, task_list, tc):
     # epsilon
     e = 5 * 0.0000001
 
+    #if task.job.name == "T_4_135":
+        #breakpoint()
+
     # iterative section
     while task.data["ss"]["di"] > t:
+        t1bkp = t1
+
         w, t1, loop_cc = _loop(task.data["ss"]["di"], t1, tl[:task.identifier])
+
+        #print("{0:}\tFast\t{1:} {2:} = _loop({3:}, {4:}, tasks)".format(task.job.name, w, t1, task.data["ss"]["di"], t1bkp))
 
         if t1 > task.data["ss"]["di"]:
             break
 
         tmas = tc + s + w - wc
+
+        #print("{0:}\tFast\tt+ = {1:} = {2:} + {3:} + {4:} - {5:})".format(task.job.name, tmas, tc, s, w, wc))
 
         if t == tmas:
             if tmax == tmas:
@@ -189,9 +199,14 @@ def get_slack(task, task_list, tc):
                 if tmax > tmas:
                     tmax = tmas
 
-                # heuristic
-                tmin, tmax, s, htl, heuristic_cc, heuristic_slack_calcs = _heuristic(tc, wc, tmas, tmax, kmax, task.data["ss"]["di"], tl[:task.identifier], htl)
+                if task.job.name == "T_2_1":
+                    import pudb; pu.db 
+
+                tmax_arg = tmax
+                tmin, tmax, s, htl, heuristic_cc, heuristic_slack_calcs, points = _heuristic(tc, wc, tmas, tmax, kmax, task.data["ss"]["di"], tl[:task.identifier], htl)
+                #print("{0:}\tFast\t{1:} {2:} {3:} {4:} = _heuristic(tmax={5:})".format(task.job.name, tmin, tmax, s, points, tmax_arg))
                 slack_calcs += heuristic_slack_calcs
+                ss_points.extend(points)
 
                 kmax = s
 
@@ -210,4 +225,4 @@ def get_slack(task, task_list, tc):
                 t = tmas
 
     return {"slack": kmax, "ttma": tmax, "cc": ceil.counter + floor.counter, "theorems": theorems,
-            "interval_length": task.data["ss"]["di"] - interval}
+            "interval_length": task.data["ss"]["di"] - interval, "slack_calcs": slack_calcs, "points": ss_points, "interval": interval}

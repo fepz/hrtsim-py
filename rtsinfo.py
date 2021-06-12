@@ -14,6 +14,11 @@ def print_tasks(tasks):
     :return: None
     """
     from tabulate import tabulate
+    import math
+    # 2021: new method
+    tasks[0]["ratio"] = 1
+    for htask, ltask in zip(tasks[:-1], tasks[1:]):
+        ltask["ratio"] = math.ceil(ltask["T"] / htask["T"])
     print(tabulate(tasks, tablefmt="github", headers="keys"))
 
 

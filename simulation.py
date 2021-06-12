@@ -21,10 +21,17 @@ def run_simulation(rts, args):
     rts["schedulable"] = josephp(rts["tasks"], verbose=False)
     calculate_k(rts["tasks"])
 
+    if rts["schedulable"] and args.only_schedulable:
+        return True
+
     # Required fields for slack stealing simulation.
     for task in rts["tasks"]:
         task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 
                 'last_psi': 0, 'last_slack': 0, 'ii': 0}
+
+    # 2021: new method
+    for htask, ltask in zip(rts["tasks"][:-1], rts["tasks"][1:]):
+        ltask["ss"]["ratio"] = math.ceil(ltask["T"] / htask["T"])
 
     params = {
         "rts": rts,
@@ -58,8 +65,10 @@ def get_args():
     parser.add_argument("--scheduler", nargs=1, type=str, help="Scheduling algorithm")
     parser.add_argument("--instance-count", type=int, default=5, help="Number of task instances to simulate.")
     parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
+    parser.add_argument("--only-schedulable", action="store_true", default=False, help="Simulate only schedulable systems.")
     parser.add_argument("--gantt", action="store_true", default=False, help="Show scheduling gantt.")
     parser.add_argument("--exit-on-error", default=False, action="store_true", help="Exit if simulation error.")
+    parser.add_argument("--verbose", default=False, action="store_true", help="Show progress information on stderr.")
     return parser.parse_args()
 
 
@@ -69,6 +78,8 @@ def main():
     try:
         error = False
         for rts in get_from_file(args.file, mixrange(args.rts)):
+            if args.verbose:
+                print("Simulating RTS {0:}".format(rts["id"]), file=sys.stderr)
             error |= run_simulation(rts, args)
     except KeyboardInterrupt:
         sys.exit(1)

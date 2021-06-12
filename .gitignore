@@ -1,6 +1,7 @@
 venv/
 mvenv/
 pypyvenv/
+.pypyvenv/
 .idea/
 *.pyc
 *.swp

@@ -22,12 +22,12 @@ def get_slack(task, task_list, tc):
     def slackcalc(task_list, tc, t, wc):
         w = 0
         for task in task_list:
-            b = task.data["ss"]["Fixed2"]["b"]
+            b = task.data["ss"]["Fixed3"]["b"]
             if (t > b) or (t <= (b - task.period)):
                 a_t = ceil(t / task.period)
-                task.data["ss"]["Fixed2"]["a"] = a_t * task.wcet
-                task.data["ss"]["Fixed2"]["b"] = a_t * task.period
-            w = w + task.data["ss"]["Fixed2"]["a"]
+                task.data["ss"]["Fixed3"]["a"] = a_t * task.wcet
+                task.data["ss"]["Fixed3"]["b"] = a_t * task.period
+            w = w + task.data["ss"]["Fixed3"]["a"]
         return t - tc - w + wc, w
 
     ceil.counter = 0
@@ -61,6 +61,13 @@ def get_slack(task, task_list, tc):
 
     # theorem 3
     intervalo = xi + (task.deadline - task.data["R"]) + task.wcet
+
+    # 2021 -- new method
+    if htask.data["k"] > 0:
+        if task.data["ss"]["ratio"] > 3:
+            new_interval = (floor(task.data["ss"]["di"] / htask.period) * htask.period) - htask.data["R"] + htask.wcet
+            if new_interval > intervalo:
+                intervalo = new_interval
 
     # corollary 1 (theorem 4)
     if intervalo <= (htask.data["ss"]["di"] + htask.wcet) <= task.data["ss"]["di"]:

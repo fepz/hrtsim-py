@@ -82,27 +82,26 @@ def run_sim(params: dict) -> dict:
     }
 
     try:
-        if params["rts"]["schedulable"]:
-            # Create SimSo configuration and model.
-            cfg = create_configuration(params["rts"], params["ss_methods"], params["instance_count"])
+        # Create SimSo configuration and model.
+        cfg = create_configuration(params["rts"], params["ss_methods"], params["instance_count"])
 
-            # Creates a SimSo model from the provided SimSo configuration.
-            model = Model(cfg)
-            # Add the slack methods to evaluate.
-            model.scheduler.data["slack_methods"] = params["ss_methods"]
-            # Number of instances to record.
-            model.scheduler.data["instance_count"] = params["instance_count"]
+        # Creates a SimSo model from the provided SimSo configuration.
+        model = Model(cfg)
+        # Add the slack methods to evaluate.
+        model.scheduler.data["ss_methods"] = params["ss_methods"]
+        # Number of instances to record.
+        model.scheduler.data["instance_count"] = params["instance_count"]
 
-            # Discard trace information to reduce memory footprint
-            if not params["gantt"]:
-                model._logger = SinkLogger(model)
-                for task in model.scheduler.task_list:
-                    task._monitor = SinkMonitor()
-                for cpu in model.scheduler.processors:
-                    cpu.monitor = SinkMonitor()
+        # Discard trace information to reduce memory footprint.
+        if not params["gantt"]:
+            model._logger = SinkLogger(model)
+            for task in model.scheduler.task_list:
+                task._monitor = SinkMonitor()
+            for cpu in model.scheduler.processors:
+                cpu.monitor = SinkMonitor()
 
-            # Run the simulation.
-            model.run_model()
+        # Run the simulation.
+        model.run_model()
 
     except (NegativeSlackException, DifferentSlackException) as exc:
         result["error"] = True
@@ -110,7 +109,7 @@ def run_sim(params: dict) -> dict:
 
     except KeyError as exc:
         result["error"] = True
-        result["error_msg"] = "Slack Method not found: {0}.".format(str(exc))
+        result["error_msg"] = "Key not found: {0}.".format(str(exc))
 
     finally:
         if params["gantt"]:
