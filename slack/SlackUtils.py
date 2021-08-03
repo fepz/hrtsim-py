@@ -31,11 +31,11 @@ def multiple_slack_calc(tc, job, tasks, slack_methods: list) -> dict:
             raise NegativeSlackException(tc, method, job.name)
 
     # verify that all the methods produces the same results
-    ss_ref = slack_results[0][1]["slack"]
-    ttma_ref = slack_results[0][1]["ttma"]
+    ss = slack_results[0][1]["slack"]
+    ttma = slack_results[0][1]["ttma"]
     for method, result in slack_results:
-        if result["slack"] != ss_ref or (result["ttma"] > 0 and result["ttma"] != ttma_ref):
+        if result["slack"] != ss or (result["ttma"] > 0 and result["ttma"] != ttma):
             raise DifferentSlackException(tc, job, method, slack_results)
 
     # return slack and ttma
-    return {"slack": ss_ref, "ttma": ttma_ref, "ss_results": slack_results}
+    return {"slack": ss, "ttma": ttma, "ss_results": slack_results}
