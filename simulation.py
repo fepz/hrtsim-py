@@ -81,10 +81,10 @@ def main():
             if args.verbose:
                 print("Simulating RTS {0:}".format(rts["id"]), file=sys.stderr)
             error |= run_simulation(rts, args)
-    except KeyboardInterrupt:
-        sys.exit(1)
 
-    if error:
+        if error:
+            sys.exit(1)
+    except KeyboardInterrupt:
         sys.exit(1)
 
 
