@@ -199,9 +199,6 @@ def get_slack(task, task_list, tc):
                 if tmax > tmas:
                     tmax = tmas
 
-                if task.job.name == "T_2_1":
-                    import pudb; pu.db 
-
                 tmax_arg = tmax
                 tmin, tmax, s, htl, heuristic_cc, heuristic_slack_calcs, points = _heuristic(tc, wc, tmas, tmax, kmax, task.data["ss"]["di"], tl[:task.identifier], htl)
                 #print("{0:}\tFast\t{1:} {2:} {3:} {4:} = _heuristic(tmax={5:})".format(task.job.name, tmin, tmax, s, points, tmax_arg))

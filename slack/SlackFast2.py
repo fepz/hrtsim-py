@@ -74,8 +74,7 @@ def get_slack(task, task_list, tc):
             if b < tmin:
                 tmin = b
 
-            if tmas < b < di:
-            #if b in range(int(tmas), int(di)):
+            if tmas <= b < di:
                 if tss["c"] != b:
                     slack_tmp = slackcalc(tasks, tc, b, wc)
                     points.append(b)
@@ -194,9 +193,6 @@ def get_slack(task, task_list, tc):
                 # this is a new fixed point
                 if tmax > tmas:
                     tmax = tmas
-
-                if task.job.name == "T_2_1":
-                    import pudb; pu.db 
 
                 tmax_arg = tmax
                 tmin, tmax, s, points = _heuristic(tc, wc, tmas, tmax, kmax, tl[:task.identifier])
