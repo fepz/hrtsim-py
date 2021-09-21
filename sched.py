@@ -2,7 +2,7 @@
 
 from typing import TextIO
 from argparse import ArgumentParser, FileType
-from schedtests import rta, rta2, rta3, rta4, het2, josephp
+from schedtests import rta, rta_uf, rta2, rta2u, rta3, rta3u, rta4, rta4u, rta4a, het2, het2u, josephp, josephp_u
 from utils.files import get_from_file
 from utils.rts import mixrange
 import math
@@ -14,12 +14,37 @@ def analyze_rts(rts: list):
     :param rts: rts
     :return: None
     """
-    rta(rts)
-    rta2(rts)
-    rta3(rts)
-    rta4(rts)
+
+    results = []
+
+    results.append(rta(rts))
+    results.append(rta_uf(rts))
+    results.append(rta2(rts))
+    results.append(rta2u(rts))
+    results.append(rta3(rts))
+    results.append(rta3u(rts))
+    results.append(rta4(rts))
+    results.append(rta4u(rts))
+    results.append(rta4a(rts))
     het2(rts)
+    het2u(rts)
     josephp(rts)
+    josephp_u(rts)
+
+    # check if all rta has the same result
+    r1 = results[0][0]
+    for r in results:
+        if r[0] != r1:
+            print("ERROR!", file=sys.stderr)
+            sys.exit(1)
+
+    # check if all rta has the same wcrt
+    r1 = results[0][1]
+    for r in results:
+        if r[1] != r1:
+            print("ERROR!", file=sys.stderr)
+            sys.exit(1)
+
 
 
 def get_args():

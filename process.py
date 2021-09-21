@@ -16,7 +16,7 @@ def get_args(options):
 
 
 def main():
-    options = ["slack", "sched"]
+    options = ["slack", "sched", "sched2"]
 
     args = get_args(options)
 
@@ -33,6 +33,9 @@ def main():
     elif args.test == options[1]:
         df = pd.read_csv(sys.stdin, sep='\t')
         print(df.groupby(["Method"]).mean().to_markdown())
+    elif args.test == options[2]:
+        df = pd.read_csv(sys.stdin, sep='\t')
+        print(df.to_markdown())
 
 if __name__ == '__main__':
     main()
