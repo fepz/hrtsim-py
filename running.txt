@@ -1,0 +1,13 @@
+Scheduling tests:
+
+The scheduling tests can be executed with parallel. For example, in order to 
+test the first 1000 rts on the rtts_u*_n10.xml file for utilization factors
+from 70 to 98:
+
+parallel ./sched.py rtts_u{}_n10.xml --rts 1-1000 '>' 25-1000-r1-n10-u{}.txt ::: 70 75 80 82 84 85 86 88 90 92 94 96 98
+
+Then use the script rta_u.awk to process the results:
+
+for f in 25-1000-r1-n50-u*.txt; do awk -f rta_u.awk $f; done | sed 's/\./,/g'
+
+The results are displayed on stdout. Can be then copied to calc or excel.
