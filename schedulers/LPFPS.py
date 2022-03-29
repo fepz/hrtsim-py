@@ -28,8 +28,8 @@ class LPFPS(Scheduler):
 
     def on_terminated(self, job):
         # verify deadline
-        #if job.exceeded_deadline:
-        #    raise MissedDeadlineException(tc, job)
+        if job.exceeded_deadline:
+            raise MissedDeadlineException(tc, job)
 
         # return the processor to its full speed (L1-L4 on Shin1999).
         job.cpu.set_speed(1.0)
