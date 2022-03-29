@@ -1,9 +1,10 @@
 #!python
 
 from simulations.simslack import run_sim
+#from simulations.dp import run_sim
 from argparse import ArgumentParser, FileType
 from utils.files import get_from_file
-from utils.rts import calculate_k, mixrange
+from utils.rts import calculate_k, calculate_y, mixrange
 from schedtests import josephp
 import math
 import sys
@@ -17,26 +18,33 @@ def run_simulation(rts, args):
     :return: None
     """
 
-    # Evaluate schedulability and K values.
-    rts["schedulable"] = josephp(rts["tasks"], verbose=False)
-    calculate_k(rts["tasks"])
+    # Evaluate schedulability and calculate K values.
+    rts["schedulable"] = josephp(rts["ptasks"], verbose=False)
+    calculate_k(rts["ptasks"])
+    calculate_y(rts["ptasks"])
 
-    if rts["schedulable"] and args.only_schedulable:
-        return True
+    # Do not simulate if only schedulable systems are required.
+    if not rts["schedulable"]:
+        if args.only_schedulable:
+            return True
+
+    # Other fields with data for the simulation
+    for ptask in rts["ptasks"]:
+        ptask["start_exec_time"] = 0
+
+    for atask in rts["atasks"]:
+        atask["start_exec_time"] = 0
 
     # Required fields for slack stealing simulation.
-    for task in rts["tasks"]:
-        task["ss"] = {'slack': task["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 
-                'last_psi': 0, 'last_slack': 0, 'ii': 0}
-
-    # 2021: new method
-    for htask, ltask in zip(rts["tasks"][:-1], rts["tasks"][1:]):
-        ltask["ss"]["ratio"] = math.ceil(ltask["T"] / htask["T"])
+    for ptask in rts["ptasks"]:
+        ptask["ss"] = {'slack': ptask["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0, 'last_slack': 0,
+                       'ii': 0}
 
     params = {
         "rts": rts,
         "instance_count": args.instance_count,
         "ss_methods": args.ss_methods,
+        "scheduler": args.scheduler,
         "gantt": args.gantt
     }
 
