@@ -30,7 +30,7 @@ class SinkMonitor(list):
         return 0
 
 
-def create_configuration(rts, slack_methods, instance_count):
+def create_configuration(rts, slack_methods, instance_count, scheduler):
     """
 
     :param rts:
@@ -60,8 +60,7 @@ def create_configuration(rts, slack_methods, instance_count):
     configuration.add_processor(name="CPU 1", identifier=1)
 
     # Add a scheduler.
-    configuration.scheduler_info.filename = "schedulers/RM_mono_slack.py"
-    #configuration.scheduler_info.clas = "simso.schedulers.RM"
+    configuration.scheduler_info.clas = scheduler
 
     # Check the config before trying to run it.
     configuration.check_all()
@@ -83,7 +82,7 @@ def run_sim(params: dict) -> dict:
 
     try:
         # Create SimSo configuration and model.
-        cfg = create_configuration(params["rts"], params["ss_methods"], params["instance_count"])
+        cfg = create_configuration(params["rts"], params["ss_methods"], params["instance_count"], params["scheduler"])
 
         # Creates a SimSo model from the provided SimSo configuration.
         model = Model(cfg)
