@@ -56,6 +56,12 @@ def calculate_k(rts: list) -> None:
         task["k"] = k - 1
 
 
+def calculate_y(rts: list) -> None:
+    """ Calcula el tiempo de promoción para cada tarea, para Dual Priority """
+    for task in rts:
+        task["y"] = task["D"] - task["R"]
+
+
 def mixrange(s):
     """
     Create a list of numbers from a string. Ie: "1-3,6,8-10" into [1,2,3,6,8,9,10]
