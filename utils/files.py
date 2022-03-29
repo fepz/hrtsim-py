@@ -19,7 +19,7 @@ def get_from_xml(file: TextIO, rts_id_list: list) -> dict:
     current_id, rts_found = 0, False
 
     for rts_id in rts_id_list:
-        rts = {"id": rts_id, "tasks": []}
+        rts = {"id": rts_id, "ptasks": []}
 
         # read the xml, parse task-sets and simulate it
         for event, elem in context:
@@ -39,7 +39,7 @@ def get_from_xml(file: TextIO, rts_id_list: list) -> dict:
                         task = elem.attrib
                         for k, v in task.items():
                             task[k] = int(float(v))
-                        rts["tasks"].append(task)
+                        rts["ptasks"].append(task)
 
             root.clear()
 
@@ -55,9 +55,9 @@ def get_from_json(file: TextIO, ids: list) -> dict:
     :return: list of rts
     """
 
-    def get_tasks(tasks: list) -> list:
+    def get_tasks(ptasks: list) -> list:
         result = []
-        for nro, task in enumerate(tasks, 1):
+        for nro, task in enumerate(ptasks, 1):
             if "nro" not in task:
                 task["nro"] = nro
             if "C" not in task:
@@ -69,20 +69,28 @@ def get_from_json(file: TextIO, ids: list) -> dict:
             result.append(task)
         return result
 
+    def get_atasks(tasks: list) -> list:
+        result = []
+        for nro, task in enumerate(tasks, 1):
+            if "nro" not in task:
+                task["nro"] = nro
+            if "C" not in task:
+                task["C"] = task.pop("c")
+            if "D" not in task:
+                task["D"] = task.pop("d", 0)
+            result.append(task)
+        return result
+
     import json
     rts_in_file = json.load(file)
     rts_list = []
 
     for id, tasks in [(id, rts_in_file[id]) for id in ids]:
-        rts = {"id": id, "tasks": [], "atasks": [], "stasks": []}
-
-        if type(tasks["periodic"]) is list:
-            rts["tasks"] = get_tasks(tasks["periodic"])
+        rts = {"id": id, "ptasks": get_tasks(tasks["periodic"]), "atasks": [], "stasks": []}
 
         if "aperiodic" in tasks:
-            rts["atasks"] = tasks["aperiodic"]
+            rts["atasks"] = get_atasks(tasks["aperiodic"])
 
-        analyze_rts(rts)
         rts_list.append(rts)
 
         yield rts
@@ -103,7 +111,7 @@ def get_from_txt(file: TextIO) -> dict:
             flag = True
             rts_counter += 1
             rts["id"] = rts_counter
-            rts["tasks"] = []
+            rts["ptasks"] = []
             task_counter = 0
         else:
             task = {}
@@ -114,13 +122,12 @@ def get_from_txt(file: TextIO) -> dict:
             for k, v in zip(param_keys, params):
                 task[k] = int(v)
             task["nro"] = task_counter
-            rts["tasks"].append(task)
+            rts["ptasks"].append(task)
 
             if number_of_tasks == 0:
                 flag = False
 
                 yield rts
-
 
 
 def get_from_file(file: TextIO, ids: list = []) -> dict:
