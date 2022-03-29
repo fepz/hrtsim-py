@@ -52,7 +52,7 @@ def run_simulation(rts, args):
 
     if sim_result["error"]:
         print("Error: RTS {0}, {1}".format(rts["id"], sim_result["error_msg"]), file=sys.stderr)
-        if args.exit_on_error:
+        if args.stop_on_error:
             sys.exit(1)
 
     if args.gantt:
@@ -70,12 +70,12 @@ def get_args():
     parser = ArgumentParser(description="Simulate a RTS.")
     parser.add_argument("file", nargs='?', type=FileType('r'), default=sys.stdin, help="File with RTS.")
     parser.add_argument("--rts", type=str, help="RTS number inside file.", default="1")
-    parser.add_argument("--scheduler", nargs=1, type=str, help="Scheduling algorithm")
+    parser.add_argument("--scheduler", type=str, help="Scheduling algorithm")
     parser.add_argument("--instance-count", type=int, default=5, help="Number of task instances to simulate.")
     parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
     parser.add_argument("--only-schedulable", action="store_true", default=False, help="Simulate only schedulable systems.")
     parser.add_argument("--gantt", action="store_true", default=False, help="Show scheduling gantt.")
-    parser.add_argument("--exit-on-error", default=False, action="store_true", help="Exit if simulation error.")
+    parser.add_argument("--stop-on-error", default=False, action="store_true", help="Stop and exit the simulation if an error is detected.")
     parser.add_argument("--verbose", default=False, action="store_true", help="Show progress information on stderr.")
     return parser.parse_args()
 
