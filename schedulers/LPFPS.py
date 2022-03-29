@@ -25,8 +25,9 @@ class LPFPS(Scheduler):
             elapsed_idle_time = (self.sim.now() - self.idle_start) / self.sim.cycles_per_ms
             t = self.sim.now() / self.sim.cycles_per_ms
             self.idle_start = 0
+            job.cpu.set_speed(1.0)
 
-        tmp_list = [math.floor(((self.sim.now() / self.sim.cycles_per_ms) / task.period) * task.period) + task.period  for task in self.task_list]
+        tmp_list = [math.floor((self.sim.now() / self.sim.cycles_per_ms) / task.period) * task.period + task.period  for task in self.task_list]
         self._early_activation = min(tmp_list)
 
         self.ready_list.append(job)
@@ -53,7 +54,7 @@ class LPFPS(Scheduler):
                 # compute new speed ratio
                 ratio = (job.task.wcet - job.computation_time) / ( self._early_activation - ( self.sim.now() / self.sim.cycles_per_ms ) )
 
-                if ((1.0 * ratio) <= 1.0):
+                if ratio < 1.0:
                     cpu.set_speed(1.0 * ratio)
         else:
             # idle time start
@@ -64,4 +65,4 @@ class LPFPS(Scheduler):
 
             job = None
 
-        return job, cpu
+        return (job, cpu)
