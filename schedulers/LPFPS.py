@@ -15,17 +15,10 @@ class LPFPS(Scheduler):
     def __init__(self, sim, scheduler_info, **kwargs):
         super().__init__(sim, scheduler_info, **kwargs)
         self.ready_list = []
-        self.idle_start = 0
-        self._sim = sim
         self._early_activation = sys.maxsize
 
     def on_activate(self, job):
-        # compute idle time
-        if job.cpu.running is None and self.idle_start > 0:
-            elapsed_idle_time = (self.sim.now() - self.idle_start) / self.sim.cycles_per_ms
-            t = self.sim.now() / self.sim.cycles_per_ms
-            self.idle_start = 0
-            job.cpu.set_speed(1.0)
+        job.cpu.set_speed(1.0)
 
         tmp_list = [math.floor((self.sim.now() / self.sim.cycles_per_ms) / task.period) * task.period + task.period  for task in self.task_list]
         self._early_activation = min(tmp_list)
@@ -57,9 +50,6 @@ class LPFPS(Scheduler):
                 if ratio < 1.0:
                     cpu.set_speed(1.0 * ratio)
         else:
-            # idle time start
-            self.idle_start = self.sim.now()
-
             # enter power down mode
             cpu.set_speed(0.0)
 
