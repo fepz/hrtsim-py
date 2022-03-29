@@ -1,4 +1,3 @@
-from collections import defaultdict
 from simso.configuration import Configuration
 from simso.core import Model
 from slack.SlackExceptions import NegativeSlackException, DifferentSlackException
@@ -41,20 +40,26 @@ def create_configuration(rts, slack_methods, instance_count, scheduler):
     # Create a SimSo configuration object.
     configuration = Configuration()
 
-    # Simulate until the lower priority task has n instantiations.
-    configuration.duration = (rts["tasks"][-1]["T"] * (instance_count + 1)) * configuration.cycles_per_ms
+    # Simulate until the lower priority periodic task has n instantiations.
+    configuration.duration = (rts["ptasks"][-1]["T"] * (instance_count + 1)) * configuration.cycles_per_ms
 
     # Add some extra required fields for slack stealing simulation.
-    for task in rts["tasks"]:
+    for ptask in rts["ptasks"]:
         # Each slack method needs its own copy of A, B, C and CC (computational cost).
         for ss_method in slack_methods:
-            task["ss"][ss_method] = {'a': task["C"], 'b': task["T"], 'c': 0}
+            ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
-    # Create the tasks and add them to the SimSo configuration.
-    for task in rts["tasks"]:
-        configuration.add_task(name="T_{0}".format(int(task["nro"])), identifier=int(task["nro"]),
-                               period=task["T"], activation_date=0, deadline=task["D"], wcet=task["C"],
-                               data=task)
+    # Create the periodic tasks and add them to the SimSo configuration.
+    for ptask in rts["ptasks"]:
+        configuration.add_task(name="T_{0}".format(int(ptask["nro"])), identifier=int(ptask["nro"]),
+                               period=ptask["T"], activation_date=0, deadline=ptask["D"], wcet=ptask["C"],
+                               data=ptask)
+
+    # Create the aperiodic tasks and add them to the SimSo configuration.
+    for atask in rts["atasks"]:
+        configuration.add_task(name="A_{0}".format(int(atask["nro"])), identifier=int(10+atask["nro"]),
+                               deadline=1000, wcet=atask["C"], task_type="Sporadic", data=atask, 
+                               list_activation_dates=[atask["a"]])
 
     # Add a processor.
     configuration.add_processor(name="CPU 1", identifier=1)
