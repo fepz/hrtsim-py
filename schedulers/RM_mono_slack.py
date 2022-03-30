@@ -13,7 +13,6 @@ class RM_mono_slack(Scheduler):
         self.ready_list = []
         self.min_slack = 0
         self.idle_start = 0
-        self._sim = sim
 
     def on_activate(self, job):
         # compute idle time
