@@ -111,9 +111,9 @@ def run_sim(params: dict) -> dict:
         result["error"] = True
         result["error_msg"] = str(exc)
 
-    #except KeyError as exc:
-    #    result["error"] = True
-    #    result["error_msg"] = "Key not found: {0}.".format(str(exc))
+    except KeyError as exc:
+        result["error"] = True
+        result["error_msg"] = "Key not found: {0}.".format(str(exc))
 
     except (AssertionError, ImportError) as exc:
         result["error"] = True
