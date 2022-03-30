@@ -4,15 +4,32 @@ Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing.
 from simso.core import Scheduler
 from schedulers.MissedDeadlineException import MissedDeadlineException
 from slack.SlackUtils import reduce_slacks, multiple_slack_calc
+from utils.rts import calculate_k
 
 
-class RM_mono_slack(Scheduler):
+class RM_SS_mono(Scheduler):
 
     def __init__(self, sim, scheduler_info, **kwargs):
         super().__init__(sim, scheduler_info, **kwargs)
         self.ready_list = []
         self.min_slack = 0
         self.idle_start = 0
+
+    def init(self):
+        calculate_k(self.data["params"]["rts"]["ptasks"])
+
+        # Required fields for slack stealing simulation.
+        for ptask in self.data["params"]["rts"]["ptasks"]:
+            ptask["start_exec_time"] = 0
+
+            ptask["ss"] = {'slack': ptask["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0,
+                           'last_slack': 0, 'ii': 0}
+
+            for ss_method in self.data["params"]["ss_methods"]:
+                ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
+
+        for atask in self.data["params"]["rts"]["atasks"]:
+            atask["start_exec_time"] = 0
 
     def on_activate(self, job):
         # compute idle time
@@ -40,7 +57,7 @@ class RM_mono_slack(Scheduler):
         reduce_slacks(self.task_list[:(job.task.identifier - 1)], job_runtime, tc)
 
         # calculate task slack
-        ss_result = multiple_slack_calc(tc, job, self.task_list, self.data["ss_methods"])
+        ss_result = multiple_slack_calc(tc, job, self.task_list, self.data["params"]["ss_methods"])
 
         # print the slack results to stdout
         for k, v in ss_result["ss_results"]:
