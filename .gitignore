@@ -7,4 +7,5 @@ pypyvenv/
 *.pyc
 *.swp
 *.dat
+*.json
 
