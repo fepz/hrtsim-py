@@ -74,14 +74,30 @@ def create_configuration(rts, instance_count, scheduler):
     return configuration
 
 
-def run_sim(params: dict) -> dict:
+def run_simulation(rts, args):
     """
-    Run the simulation of a rts.
-    :param rts: rts to simulate.
-    :param params: simulation parameters.
-    :param callback: callback to be called from simso.
-    :return: a dict with the simulation results
+    Simulate an rts
+    :param rts: task set
+    :param args: parameters
+    :return: None
     """
+
+    # Evaluate schedulability
+    rts["schedulable"] = josephp(rts["ptasks"], verbose=False)
+
+    # Do not simulate if only schedulable systems are required.
+    if not rts["schedulable"]:
+        if args.only_schedulable:
+            return True
+
+    params = {
+        "rts": rts,
+        "instance_count": args.instance_count,
+        "ss_methods": args.ss_methods,
+        "scheduler": args.scheduler,
+        "gantt": args.gantt
+    }
+
     result = {
         "error": False,
     }
@@ -123,37 +139,8 @@ def run_sim(params: dict) -> dict:
         if params["gantt"]:
             result["model"] = model
 
-    return result
-
-
-def run_simulation(rts, args):
-    """
-    Simulate an rts
-    :param rts: task set
-    :param args: parameters
-    :return: None
-    """
-
-    # Evaluate schedulability
-    rts["schedulable"] = josephp(rts["ptasks"], verbose=False)
-
-    # Do not simulate if only schedulable systems are required.
-    if not rts["schedulable"]:
-        if args.only_schedulable:
-            return True
-
-    params = {
-        "rts": rts,
-        "instance_count": args.instance_count,
-        "ss_methods": args.ss_methods,
-        "scheduler": args.scheduler,
-        "gantt": args.gantt
-    }
-
-    sim_result = run_sim(params)
-
-    if sim_result["error"]:
-        print("Error: RTS {0}, {1}".format(rts["id"], sim_result["error_msg"]), file=sys.stderr)
+    if result["error"]:
+        print("Error: RTS {0}, {1}".format(rts["id"], result["error_msg"]), file=sys.stderr)
         if args.stop_on_error:
             sys.exit(1)
 
@@ -161,10 +148,10 @@ def run_simulation(rts, args):
         from gui.gantt import create_gantt_window
         from PyQt5.QtWidgets import QApplication
         app = QApplication(sys.argv)
-        ex = create_gantt_window(sim_result["model"])
+        ex = create_gantt_window(result["model"])
         return app.exec_()
 
-    return sim_result["error"]
+    return result
 
 
 def get_args():
@@ -190,7 +177,12 @@ def main():
         for rts in get_from_file(args.file, mixrange(args.rts)):
             if args.verbose:
                 print("Simulating RTS {0:}".format(rts["id"]), file=sys.stderr)
-            error |= run_simulation(rts, args)
+            sim_result = run_simulation(rts, args)
+            error |= sim_result["error"]
+            if args.stop_on_error and error:
+                print("Error: RTS {0}, {1}".format(rts["id"], sim_result["error_msg"]), file=sys.stderr)
+                if args.stop_on_error:
+                    sys.exit(1)
 
         if error:
             sys.exit(1)
