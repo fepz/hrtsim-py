@@ -1,5 +1,5 @@
-from typing import TextIO
-import math 
+import math
+
 
 def lcm(rts: list) -> float:
     """ Real-time system hiperperiod (l.c.m) """
