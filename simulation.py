@@ -58,7 +58,7 @@ def create_configuration(rts, instance_count, scheduler):
 
     # Create the aperiodic tasks and add them to the SimSo configuration.
     for atask in rts["atasks"]:
-        configuration.add_task(name="A_{0}".format(int(atask["nro"])), identifier=int(10+atask["nro"]),
+        configuration.add_task(name="A_{0}".format(int(atask["nro"])), identifier=int(len(rts["ptask"])+atask["nro"]),
                                deadline=1000, wcet=atask["C"], task_type="Sporadic", data=atask,
                                list_activation_dates=[atask["a"]])
 
