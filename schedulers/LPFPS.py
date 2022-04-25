@@ -55,4 +55,6 @@ class LPFPS(Scheduler):
 
             job = None
 
-        return (job, cpu)
+        print("{:03.2f}\t{:1.1f}".format(self.sim.now() / self.sim.cycles_per_ms, cpu.speed))
+
+        return job, cpu
