@@ -122,13 +122,6 @@ def get_slack(task, task_list, tc):
     # theorem 10
     interval = task.data["ss"]["di"] - task.data["R"] + task.wcet
 
-    # 2021 -- new method
-    if htask.data["k"] > 0:
-        if task.data["ss"]["ratio"] > 3:
-            new_interval = (floor(task.data["ss"]["di"] / htask.period) * htask.period) - htask.data["R"] + htask.wcet
-            if new_interval > interval:
-                interval = new_interval
-
     # workload at tc
     wc = 0
     for task in tl[:task.identifier]:
@@ -172,17 +165,12 @@ def get_slack(task, task_list, tc):
 
     # iterative section
     while t < task.data["ss"]["di"]:
-        t1bkp = t1
         w, t1 = _loop(task.data["ss"]["di"], t1, tl[:task.identifier])
-
-        #print("{0:}\tFast2\t{1:} {2:} = _loop({3:}, {4:}, tasks)".format(task.job.name, w, t1, task.data["ss"]["di"], t1bkp))
 
         if t1 > task.data["ss"]["di"]:
             break
 
         tmas = tc + s + w - wc
-
-        #print("{0:}\tFast2\tt+ = {1:} = {2:} + {3:} + {4:} - {5:})".format(task.job.name, tmas, tc, s, w, wc))
 
         if t == tmas:
             if tmax == tmas:
@@ -218,4 +206,3 @@ def get_slack(task, task_list, tc):
     return {"slack": kmax, "ttma": tmax, "cc": ceil.counter + floor.counter, "theorems": theorems,
             "interval_length": task.data["ss"]["di"] - interval, "interval": interval, 
             "slack_calcs": slackcalc.counter, "points": ss_points}
-
