@@ -11,3 +11,12 @@ Then use the script rta_u.awk to process the results:
 for f in 25-1000-r1-n50-u*.txt; do awk -f rta_u.awk $f; done | sed 's/\./,/g'
 
 The results are displayed on stdout. Can be then copied to calc or excel.
+
+---
+
+LPFPS and RM:
+
+The duplicates lines can be removed with sort. For example:
+
+./simulation.py lpfps-rts.json --rts 1 --scheduler schedulers.LPFPS --instance-count 2 --cpu cpu.json | uniq -w 7
+
