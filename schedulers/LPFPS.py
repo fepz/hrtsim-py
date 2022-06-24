@@ -16,11 +16,12 @@ class LPFPS(Scheduler):
         self._ready_list = []
         self._early_activation = sys.maxsize
         self._energy = 0
-        self.data["params"]["cpu"].set_lvl(1.0)
+        self._cpu = self.data["params"]["cpu"]
+        self._cpu.set_lvl(1.0)
 
     def on_activate(self, job):
         job.cpu.set_speed(1.0)
-        self.data["params"]["cpu"].set_lvl(job.cpu.speed)
+        self._cpu.set_lvl(job.cpu.speed)
 
         tmp_list = [math.floor((self.sim.now() / self.sim.cycles_per_ms) / task.period) 
                 * task.period + task.period  for task in self.task_list]
@@ -39,10 +40,9 @@ class LPFPS(Scheduler):
 
         # Return the processor to its full speed (L1-L4 on Shin1999).
         job.cpu.set_speed(1.0)
-        self.data["params"]["cpu"].set_lvl(job.cpu.speed)
+        self._cpu.set_lvl(job.cpu.speed)
 
-        self._energy += (job.computation_time *
-                self.data["params"]["cpu"].curlvl[3])
+        self._energy += job.computation_time * self._cpu.curlvl[3]
 
         self.print('E', job)
 
@@ -62,18 +62,17 @@ class LPFPS(Scheduler):
 
                 if ratio <= 1.0:
                     cpu.set_speed(1.0 * ratio)
-                    self.data["params"]["cpu"].set_lvl(cpu.speed)
+                    self._cpu.set_lvl(cpu.speed)
             else:
                 cpu.set_speed(1.0)
-                self.data["params"]["cpu"].set_lvl(cpu.speed)
+                self._cpu.set_lvl(cpu.speed)
 
             self.print('S', job)
-
                     
         else:
             # Enter power down mode
             cpu.set_speed(0.0)
-            self.data["params"]["cpu"].set_lvl(cpu.speed)
+            self._cpu.set_lvl(cpu.speed)
 
             job = None
 
@@ -82,5 +81,5 @@ class LPFPS(Scheduler):
     def print(self, event, job):
         print("{}\t{}\t{:03.2f}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(job.name, 
             event, self.sim.now() / self.sim.cycles_per_ms, job.cpu.speed, 
-            self.data["params"]["cpu"].curlvl[6], self._energy))
+            self._cpu.curlvl[6], self._energy))
 
