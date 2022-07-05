@@ -17,7 +17,6 @@ class Cpu:
             # Relative power
             lvl.append(lvl[3] / (self.maxv * self.maxicc))
             # Relative frequency
-            #lvl.append(self.lvls[-1][0] / lvl[0])
             lvl.append(self.lvls[-1][0] / lvl[0])
             # Normalize lvl into [0 .. 1]
             lvl.append(lvl[0] / self.lvls[-1][0])
