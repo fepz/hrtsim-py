@@ -9,13 +9,14 @@ from utils.rts import calculate_k
 
 class RM_SS_mono(Scheduler):
 
-    def __init__(self, sim, scheduler_info, **kwargs):
-        super().__init__(sim, scheduler_info, **kwargs)
+    def init(self):
         self.ready_list = []
         self.min_slack = 0
         self.idle_start = 0
+        self._energy = 0
+        self._cpu = self.data["params"]["cpu"]
+        self._cpu.set_lvl(1.0)
 
-    def init(self):
         calculate_k(self.data["params"]["rts"]["ptasks"])
 
         # Required fields for slack stealing simulation.
@@ -39,6 +40,7 @@ class RM_SS_mono(Scheduler):
             reduce_slacks(self.task_list, elapsed_idle_time, t)
             self.idle_start = 0
 
+        self.print('A', job)
         self.ready_list.append(job)
         job.cpu.resched()
 
@@ -60,15 +62,19 @@ class RM_SS_mono(Scheduler):
         ss_result = multiple_slack_calc(tc, job, self.task_list, self.data["params"]["ss_methods"])
 
         # print the slack results to stdout
+        """
         for k, v in ss_result["ss_results"]:
             print("{0:} {1:} {2:} {3:} {4:} {5:} {6:} {7:}".format(job.name.split("_")[1], job.name.split("_")[2], v["cc"], 
                 v["interval_length"], v["slack_calcs"], k, v["interval"], " ".join([str(x) for x in v["points"]])))
+                """
 
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
         # Find system new minimum slack
         self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
+
+        self.print('E', job)
 
         # Remove the job from the CPU and reschedule
         self.ready_list.remove(job)
@@ -94,6 +100,8 @@ class RM_SS_mono(Scheduler):
 
             # update execution start time
             job.task.data["ss"]["start_exec_time"] = self.sim.now()
+
+            self.print('S', job)
         else:
             # idle time start
             self.idle_start = self.sim.now()
@@ -101,3 +109,9 @@ class RM_SS_mono(Scheduler):
             job = None
 
         return job, cpu
+
+    def print(self, event, job):
+        print("{}\t{}\t{:03.2f}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(job.name, 
+            event, self.sim.now() / self.sim.cycles_per_ms, job.cpu.speed, 
+            self._cpu.curlvl[6], self._energy))
+
