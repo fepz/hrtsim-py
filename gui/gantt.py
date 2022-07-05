@@ -73,7 +73,7 @@ class GanttCanvas(QWidget):
         self.plot()
 
     def plot(self):
-        self._vwidth = (self._end_date - self._start_date) * 10
+        self._vwidth = (self._end_date - self._start_date) * 10 
         self._width = self._vwidth + 40
         self._height = 20 + 80 * len(self._selected_items)
         if self._width < 200:
@@ -98,7 +98,7 @@ class GanttCanvas(QWidget):
     def plot_graph(self, qp, name, start_date, end_date, step, substep, c):
         qp.save()
         convX = self.convX
-        graph_height = 50
+        graph_height = 50 
         qp.setBrush(QColor(255, 255, 255))
         x, y = self.origGraph(c)
         qp.drawRect(QRectF(x - 1, y, convX(end_date - start_date) + 1,
@@ -135,7 +135,7 @@ class GanttCanvas(QWidget):
         qp.drawText(QRect(0, 0, 80, 20), Qt.AlignCenter, name)
         qp.restore()
 
-    def plot_rect_graph(self, qp, start_x, end_x, color_style, c):
+    def plot_rect_graph(self, qp, start_x, end_x, color_style, c, speed=1.0):
         if start_x < self._start_date:
             start_x = self._start_date
         if start_x >= end_x:
@@ -150,8 +150,9 @@ class GanttCanvas(QWidget):
         color, style = color_style
         color.setAlpha(200)
         qp.setBrush(QBrush(color, style))
-        qp.drawRect(QRectF(x + self.convX(start_x), y + 10,
-                           self.convX(end_x - start_x), 40))
+        speed_var = 40 * speed;
+        qp.drawRect(QRectF(x + self.convX(start_x), y + (10 + (40 - speed_var)),
+                           self.convX(end_x - start_x), (speed_var)))
         qp.restore()
         #qp.drawLine(x + self.convX(start_x), y + 10,
         #            x + self.convX(end_x), y + 10)
@@ -236,6 +237,7 @@ class GanttCanvas(QWidget):
 
             x1 = start_date
             color = None
+            speed = 1.0
             for evt in processor.monitor:
                 current_date = float(evt[0]) / sim.cycles_per_ms
                 if current_date > end_date:
@@ -245,17 +247,19 @@ class GanttCanvas(QWidget):
                     ncolor = self.get_color(evt[1].args.task.identifier)
                 elif evt[1].event == ProcEvent.OVERHEAD:
                     ncolor = (QColor(150, 150, 150), Qt.SolidPattern)
+                    if type(evt[1].args) is tuple:
+                        speed = evt[1].args[1]
                 elif evt[1].event == ProcEvent.IDLE:
                     ncolor = None
 
                 if ncolor != color:
                     if current_date > x1 and color:
-                        self.plot_rect_graph(qp, x1, current_date, color, c)
+                        self.plot_rect_graph(qp, x1, current_date, color, c, speed) 
                     color = ncolor
                     x1 = current_date
 
             if color:
-                self.plot_rect_graph(qp, x1, end_date, color, c)
+                self.plot_rect_graph(qp, x1, end_date, color, c, speed)
 
         # Plot tasks
         for task in [x for x in sim.task_list if x in self._selected_items]:
@@ -272,8 +276,8 @@ class GanttCanvas(QWidget):
 
                 if evt[1].event != JobEvent.ACTIVATE:
                     if color and x1 < current_date:
-                        self.plot_rect_graph(qp, x1, current_date, color, c)
-
+                        print(evt[1].job.cpu.speed, x1, current_date)
+                        self.plot_rect_graph(qp, x1, current_date, color, c) #evt[1].job.cpu.speed)
                     if evt[1].event == JobEvent.EXECUTE:
                         color = self.get_color(task.identifier)
                     elif evt[1].event == JobEvent.PREEMPTED:
@@ -286,7 +290,7 @@ class GanttCanvas(QWidget):
                     x1 = current_date
 
             if x1 < end_date and color:
-                self.plot_rect_graph(qp, x1, end_date, color, c)
+                self.plot_rect_graph(qp, x1, end_date, color, c, evt[1].job.cpu.speed)
 
             # Draw activation lines.
             for evt in task.monitor:
