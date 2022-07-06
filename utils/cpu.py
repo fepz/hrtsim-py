@@ -10,7 +10,7 @@ class Cpu:
         self._current_lvl = self.lvls[0]
 
         for lvl in self.lvls:
-            # Calculate ICC
+            # Calculate ICC (ampers)
             lvl.append(self.calc_icc(lvl[1]))
             # Power
             lvl.append(lvl[2] * lvl[1])
