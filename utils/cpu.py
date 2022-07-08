@@ -32,6 +32,9 @@ class Cpu:
                 self._current_lvl = lvl
                 return
 
+    def get_lvl(self, lvl):
+        return self._cpuinfo["lvls"][lvl]
+
     @property
     def curlvl(self):
         return self._current_lvl
