@@ -276,8 +276,8 @@ class GanttCanvas(QWidget):
 
                 if evt[1].event != JobEvent.ACTIVATE:
                     if color and x1 < current_date:
-                        print(evt[1].job.cpu.speed, x1, current_date)
-                        self.plot_rect_graph(qp, x1, current_date, color, c) #evt[1].job.cpu.speed)
+                        #print(evt[1].job.cpu.speed, x1, current_date)
+                        self.plot_rect_graph(qp, x1, current_date, color, c ,evt[1].job.cpu.speed)
                     if evt[1].event == JobEvent.EXECUTE:
                         color = self.get_color(task.identifier)
                     elif evt[1].event == JobEvent.PREEMPTED:

@@ -39,7 +39,7 @@ class RM_mono(Scheduler):
         return (job, cpu)
 
     def print(self, event, job):
-        print("{}\t{}\t{:03.2f}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(job.name, 
+        print("{}\t{}\t{:03.2f}\t{:1.1f}\t{:5.0f}\t{:1.3f}".format(job.name,
             event, self.sim.now() / self.sim.cycles_per_ms, job.cpu.speed, 
-            self._cpu.curlvl[6], self._energy))
+            self._cpu.curlvl[0], self._energy))
 

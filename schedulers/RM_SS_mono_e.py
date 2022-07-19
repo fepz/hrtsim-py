@@ -1,6 +1,8 @@
 """
 Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing and energy consumption.
 """
+import sys
+
 from simso.core import Scheduler
 from schedulers.MissedDeadlineException import MissedDeadlineException
 from slack.SlackUtils import reduce_slacks, multiple_slack_calc
@@ -14,6 +16,7 @@ class RM_SS_mono_e(Scheduler):
     def init(self):
         self.ready_list = []
         self.min_slack = 0
+        self.min_slack_t = 0
         self.idle_start = 0
         self._energy = 0
         self._cpu = self.data["params"]["cpu"]
@@ -29,6 +32,7 @@ class RM_SS_mono_e(Scheduler):
 
             josephp(rts_in_lvl["ptasks"], verbose=False)
 
+            # The K values are also used as the slack at t=0
             calculate_k(rts_in_lvl["ptasks"])
 
             for ptask in rts_in_lvl["ptasks"]:
@@ -48,7 +52,7 @@ class RM_SS_mono_e(Scheduler):
         for ptask in self.data["params"]["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
 
-            ptask["ss"] = {'slack': ptask["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0,
+            ptask["ss"] = {'slack': ptask["k"], 'ttma': ptask["D"], 'di': 0, 'start_exec_time': 0, 'last_psi': 0,
                            'last_slack': 0, 'ii': 0}
 
             for ss_method in self.data["params"]["ss_methods"]:
@@ -56,6 +60,24 @@ class RM_SS_mono_e(Scheduler):
 
         for atask in self.data["params"]["rts"]["atasks"]:
             atask["start_exec_time"] = 0
+
+        # Find the system minimum slack and the time at which it occurs
+        self.min_slack = sys.maxsize
+        self.min_slack_t = 0
+        self.min_slack_task = None
+        for task in self._rts[-1]["ptasks"]:
+            slack, ttma = task["ss"]["slack"], task["ss"]["ttma"]
+            if slack <= self.min_slack:
+                self.min_slack = slack
+                if slack == self.min_slack:
+                    if self.min_slack_t <= ttma:
+                        self.min_slack_t = ttma
+                        self.min_slack_task = task["nro"]
+                else:
+                    self.min_slack_task = task["nro"]
+
+        self.f_min = ((self.min_slack_t - self.min_slack) / self.min_slack_t)
+        self.processors[0].set_speed(self.f_min)
 
     def on_activate(self, job):
         # compute idle time
@@ -88,18 +110,29 @@ class RM_SS_mono_e(Scheduler):
         # calculate task slack
         ss_result = multiple_slack_calc(tc, job, self.task_list, self.data["params"]["ss_methods"])
 
-        # print the slack results to stdout
-        """
-        for k, v in ss_result["ss_results"]:
-            print("{0:} {1:} {2:} {3:} {4:} {5:} {6:} {7:}".format(job.name.split("_")[1], job.name.split("_")[2], v["cc"], 
-                v["interval_length"], v["slack_calcs"], k, v["interval"], " ".join([str(x) for x in v["points"]])))
-                """
-
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
         # Find system new minimum slack
-        self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
+        #self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
+
+        # Find the system minimum slack and the time at which it occurs
+        flag = False
+        self.min_slack = sys.maxsize
+        self.min_slack_t = sys.maxsize
+        for task in self.task_list:
+            slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
+            if slack < self.min_slack:
+                self.min_slack = slack
+                self.min_slack_t = ttma
+            else:
+                if slack == self.min_slack:
+                    if self.min_slack_t < ttma:
+                        self.min_slack_t = ttma
+
+        if job.task.data["nro"] == self.min_slack_task:
+            self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
+            self.processors[0].set_speed(self.f_min)
 
         self._energy += job.computation_time * self._cpu.curlvl[3]
 
