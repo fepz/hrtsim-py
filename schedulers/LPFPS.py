@@ -72,14 +72,14 @@ class LPFPS(Scheduler):
         else:
             # Enter power down mode
             cpu.set_speed(0.0)
-            self._cpu.set_lvl(cpu.speed)
+            #self._cpu.set_lvl(cpu.speed)
 
             job = None
 
         return job, cpu
 
     def print(self, event, job):
-        print("{}\t{}\t{:03.2f}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(job.name, 
-            event, self.sim.now() / self.sim.cycles_per_ms, job.cpu.speed, 
-            self._cpu.curlvl[6], self._energy))
+        print("{:03.2f}\t{}\t{}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(
+            self.sim.now() / self.sim.cycles_per_ms, job.name, event,
+            job.cpu.speed, self._cpu.curlvl[6], self._energy))
 

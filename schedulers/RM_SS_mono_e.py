@@ -78,6 +78,7 @@ class RM_SS_mono_e(Scheduler):
 
         self.f_min = ((self.min_slack_t - self.min_slack) / self.min_slack_t)
         self.processors[0].set_speed(self.f_min)
+        self._cpu.set_lvl(self.f_min)
 
     def on_activate(self, job):
         # compute idle time
@@ -133,6 +134,7 @@ class RM_SS_mono_e(Scheduler):
         if job.task.data["nro"] == self.min_slack_task:
             self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
             self.processors[0].set_speed(self.f_min)
+            self._cpu.set_lvl(self.f_min)
 
         self._energy += job.computation_time * self._cpu.curlvl[3]
 
@@ -168,14 +170,13 @@ class RM_SS_mono_e(Scheduler):
             # idle time start
             self.idle_start = self.sim.now()
             # set CPU to minimum level
-            self._cpu.set_lvl(0)
+            #self._cpu.set_lvl(0)
 
             job = None
 
         return job, cpu
 
     def print(self, event, job):
-        print("{}\t{}\t{:03.2f}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(job.name,
-                                                                   event, self.sim.now() / self.sim.cycles_per_ms, job.cpu.speed,
-                                                                   self._cpu.curlvl[6], self._energy))
-
+        print("{:03.2f}\t{}\t{}\t{:1.1f}\t{:1.3f}\t{:1.3f}".format(
+            self.sim.now() / self.sim.cycles_per_ms, job.name, event,
+            job.cpu.speed, self._cpu.curlvl[6], self._energy))
