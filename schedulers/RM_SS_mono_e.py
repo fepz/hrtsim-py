@@ -77,8 +77,10 @@ class RM_SS_mono_e(Scheduler):
                     self.min_slack_task = task["nro"]
 
         self.f_min = ((self.min_slack_t - self.min_slack) / self.min_slack_t)
-        self.processors[0].set_speed(self.f_min)
+        #self.f_min = (self.f_min * 1000) / self._cpu.lvls[-1][0]
+        #self.processors[0].set_speed(self.f_min)
         self._cpu.set_lvl(self.f_min)
+        self.processors[0].set_speed(self._cpu.curlvl[6])
 
     def on_activate(self, job):
         # compute idle time
@@ -88,7 +90,8 @@ class RM_SS_mono_e(Scheduler):
             reduce_slacks(self.task_list, elapsed_idle_time, t)
             self._energy += elapsed_idle_time * self._cpu.curlvl[3]
             self.idle_start = 0
-            self._cpu.set_lvl(1.0)
+            #self._cpu.set_lvl(1.0)
+            #self.processors[0].set_speed(self._cpu.curlvl[6])
 
         self.print('A', job)
         self.ready_list.append(job)
@@ -133,8 +136,10 @@ class RM_SS_mono_e(Scheduler):
 
         if job.task.data["nro"] == self.min_slack_task:
             self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
-            self.processors[0].set_speed(self.f_min)
+            #self.f_min = (self.f_min * 1000) / self._cpu.lvls[-1][0]
+            #self.processors[0].set_speed(self.f_min)
             self._cpu.set_lvl(self.f_min)
+            self.processors[0].set_speed(self._cpu.curlvl[6])
 
         self._energy += job.computation_time * self._cpu.curlvl[3]
 
@@ -171,12 +176,13 @@ class RM_SS_mono_e(Scheduler):
             self.idle_start = self.sim.now()
             # set CPU to minimum level
             #self._cpu.set_lvl(0)
+            #self.processors[0].set_speed(self._cpu.curlvl[6])
 
             job = None
 
         return job, cpu
 
     def print(self, event, job):
-        print("{:03.2f}\t{}\t{}\t{:1.1f}\t{:1.3f}\t{:1.3f}".format(
+        print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{}\t{:1.3f}".format(
             self.sim.now() / self.sim.cycles_per_ms, job.name, event,
-            job.cpu.speed, self._cpu.curlvl[6], self._energy))
+            job.cpu.speed, self._cpu.curlvl[6], self._cpu.curlvl[0], self._energy))

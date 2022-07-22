@@ -61,8 +61,8 @@ class LPFPS(Scheduler):
                     (self._early_activation - (self.sim.now() / self.sim.cycles_per_ms))
 
                 if ratio <= 1.0:
-                    cpu.set_speed(1.0 * ratio)
-                    self._cpu.set_lvl(cpu.speed)
+                    self._cpu.set_lvl(1.0 * ratio)
+                    self.processors[0].set_speed(self._cpu.curlvl[6])
             else:
                 cpu.set_speed(1.0)
                 self._cpu.set_lvl(cpu.speed)
@@ -79,7 +79,7 @@ class LPFPS(Scheduler):
         return job, cpu
 
     def print(self, event, job):
-        print("{:03.2f}\t{}\t{}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(
+        print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{:1.3f}".format(
             self.sim.now() / self.sim.cycles_per_ms, job.name, event,
             job.cpu.speed, self._cpu.curlvl[6], self._energy))
 
