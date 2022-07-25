@@ -5,7 +5,7 @@ import sys
 
 from simso.core import Scheduler
 from schedulers.MissedDeadlineException import MissedDeadlineException
-from slack.SlackUtils import reduce_slacks, multiple_slack_calc
+from slack.SlackUtils import reduce_slacks, multiple_slack_calc, get_minimum_slack
 from utils.rts import calculate_k
 from schedtests import josephp
 import copy
@@ -22,7 +22,6 @@ class RM_SS_mono_e(Scheduler):
         self._cpu = self.data["params"]["cpu"]
         self._cpu.set_lvl(1.0)
         self._rts = []
-        self._dvs_interval = 0
 
         f = self._cpu.get_lvl(-1)
         for lvl in self._cpu.lvls:
@@ -63,52 +62,13 @@ class RM_SS_mono_e(Scheduler):
             atask["start_exec_time"] = 0
 
         # Find the system minimum slack and the time at which it occurs
-        self.min_slack = sys.maxsize
-        self.min_slack_t = 0
-        self.min_slack_task = None
-        for task in self._rts[-1]["ptasks"]:
-            slack, ttma = task["ss"]["slack"], task["ss"]["ttma"]
-            if slack <= self.min_slack:
-                self.min_slack = slack
-                if slack == self.min_slack:
-                    if self.min_slack_t <= ttma:
-                        self.min_slack_t = ttma
-                        self.min_slack_task = task["nro"]
-                else:
-                    self.min_slack_task = task["nro"]
+        self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
 
         self.f_min = ((self.min_slack_t - self.min_slack) / self.min_slack_t)
         self._cpu.set_lvl(self.f_min)
         self.processors[0].set_speed(self._cpu.curlvl[6])
-        self._dvs_interval = self.min_slack_t
 
     def on_activate(self, job):
-        # compute idle time
-        if job.cpu.running is None and self.idle_start > 0:
-            elapsed_idle_time = (self.sim.now() - self.idle_start) / self.sim.cycles_per_ms
-            t = self.sim.now() / self.sim.cycles_per_ms
-            reduce_slacks(self.task_list, elapsed_idle_time, t)
-            self._energy += elapsed_idle_time * self._cpu.curlvl[3]
-            self.idle_start = 0
-
-            flag = False
-            self.min_slack = sys.maxsize
-            self.min_slack_t = sys.maxsize
-            for task in self.task_list:
-                slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
-                if slack < self.min_slack:
-                    self.min_slack = slack
-                    self.min_slack_t = ttma
-                else:
-                    if slack == self.min_slack:
-                        if self.min_slack_t < ttma:
-                            self.min_slack_t = ttma
-
-            tc = self.sim.now() / self.sim.cycles_per_ms
-            self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
-            self._cpu.set_lvl(self.f_min)
-            self.processors[0].set_speed(self._cpu.curlvl[6])
-
         self.print('A', job)
         self.ready_list.append(job)
         job.cpu.resched()
@@ -134,23 +94,7 @@ class RM_SS_mono_e(Scheduler):
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
         # Find the system minimum slack and the time at which it occurs
-        flag = False
-        self.min_slack = sys.maxsize
-        self.min_slack_t = sys.maxsize
-        for task in self.task_list:
-            slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
-            if slack < self.min_slack:
-                self.min_slack = slack
-                self.min_slack_t = ttma
-            else:
-                if slack == self.min_slack:
-                    if self.min_slack_t < ttma:
-                        self.min_slack_t = ttma
-
-        if job.task.data["nro"] == self.min_slack_task:
-            self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
-            self._cpu.set_lvl(self.f_min)
-            self.processors[0].set_speed(self._cpu.curlvl[6])
+        self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
 
         self._energy += job.computation_time * self._cpu.curlvl[3]
 
@@ -173,6 +117,22 @@ class RM_SS_mono_e(Scheduler):
 
             # find system new minimum slack
             self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
+        else:
+            # compute idle time
+            if self.idle_start > 0:
+                elapsed_idle_time = (self.sim.now() - self.idle_start) / self.sim.cycles_per_ms
+                t = self.sim.now() / self.sim.cycles_per_ms
+                reduce_slacks(self.task_list, elapsed_idle_time, t)
+                self._energy += elapsed_idle_time * self._cpu.curlvl[3]
+                self.idle_start = 0
+
+                # Find the system minimum slack and the time at which it occurs
+                self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
+
+                tc = self.sim.now() / self.sim.cycles_per_ms
+                self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
+                self._cpu.set_lvl(self.f_min)
+                self.processors[0].set_speed(self._cpu.curlvl[6])
 
         if self.ready_list:
             # ready job with the highest priority (lowest period)
