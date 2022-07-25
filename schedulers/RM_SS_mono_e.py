@@ -22,6 +22,7 @@ class RM_SS_mono_e(Scheduler):
         self._cpu = self.data["params"]["cpu"]
         self._cpu.set_lvl(1.0)
         self._rts = []
+        self._dvs_interval = 0
 
         f = self._cpu.get_lvl(-1)
         for lvl in self._cpu.lvls:
@@ -77,10 +78,9 @@ class RM_SS_mono_e(Scheduler):
                     self.min_slack_task = task["nro"]
 
         self.f_min = ((self.min_slack_t - self.min_slack) / self.min_slack_t)
-        #self.f_min = (self.f_min * 1000) / self._cpu.lvls[-1][0]
-        #self.processors[0].set_speed(self.f_min)
         self._cpu.set_lvl(self.f_min)
         self.processors[0].set_speed(self._cpu.curlvl[6])
+        self._dvs_interval = self.min_slack_t
 
     def on_activate(self, job):
         # compute idle time
@@ -90,8 +90,24 @@ class RM_SS_mono_e(Scheduler):
             reduce_slacks(self.task_list, elapsed_idle_time, t)
             self._energy += elapsed_idle_time * self._cpu.curlvl[3]
             self.idle_start = 0
-            #self._cpu.set_lvl(1.0)
-            #self.processors[0].set_speed(self._cpu.curlvl[6])
+
+            flag = False
+            self.min_slack = sys.maxsize
+            self.min_slack_t = sys.maxsize
+            for task in self.task_list:
+                slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
+                if slack < self.min_slack:
+                    self.min_slack = slack
+                    self.min_slack_t = ttma
+                else:
+                    if slack == self.min_slack:
+                        if self.min_slack_t < ttma:
+                            self.min_slack_t = ttma
+
+            tc = self.sim.now() / self.sim.cycles_per_ms
+            self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
+            self._cpu.set_lvl(self.f_min)
+            self.processors[0].set_speed(self._cpu.curlvl[6])
 
         self.print('A', job)
         self.ready_list.append(job)
@@ -117,9 +133,6 @@ class RM_SS_mono_e(Scheduler):
         # log results
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
 
-        # Find system new minimum slack
-        #self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
-
         # Find the system minimum slack and the time at which it occurs
         flag = False
         self.min_slack = sys.maxsize
@@ -136,8 +149,6 @@ class RM_SS_mono_e(Scheduler):
 
         if job.task.data["nro"] == self.min_slack_task:
             self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc))
-            #self.f_min = (self.f_min * 1000) / self._cpu.lvls[-1][0]
-            #self.processors[0].set_speed(self.f_min)
             self._cpu.set_lvl(self.f_min)
             self.processors[0].set_speed(self._cpu.curlvl[6])
 
