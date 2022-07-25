@@ -21,6 +21,23 @@ def reduce_slacks(tasks, amount, t):
             raise NegativeSlackException(t, task, "Scheduler")
 
 
+def get_minimum_slack(tasks):
+    # Find the system minimum slack and the time at which it occurs
+    from sys import maxsize
+    _min_slack = maxsize
+    _min_slack_t = 0
+
+    for task in tasks:
+        slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
+        if slack <= _min_slack:
+            _min_slack = slack
+            if slack == _min_slack:
+                if _min_slack_t <= ttma:
+                    _min_slack_t = ttma
+
+    return (_min_slack, _min_slack_t)
+
+
 def multiple_slack_calc(tc, job, tasks, slack_methods: list) -> dict:
     # calculate slack with each method in slack_methods
     slack_results = [(m, get_slack_methods()[m](job.task, tasks, tc)) for m in slack_methods]
