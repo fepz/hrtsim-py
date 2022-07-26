@@ -15,8 +15,12 @@ def get_slack_methods():
 
 
 def reduce_slacks(tasks, amount, t):
+    from math import fabs
     for task in tasks:
         task.data["ss"]["slack"] -= amount
+        # DIRTY HACK
+        if (fabs(task.data["ss"]["slack"]) < 0.00005):
+            task.data["ss"]["slack"] = 0
         if task.data["ss"]["slack"] < 0:
             raise NegativeSlackException(t, task, "Scheduler")
 
@@ -30,10 +34,12 @@ def get_minimum_slack(tasks):
     for task in tasks:
         slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
         if slack <= _min_slack:
-            _min_slack = slack
             if slack == _min_slack:
                 if _min_slack_t <= ttma:
                     _min_slack_t = ttma
+            else:
+               _min_slack = slack
+               _min_slack_t = ttma
 
     return (_min_slack, _min_slack_t)
 
