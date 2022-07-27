@@ -22,10 +22,11 @@ def get_slack(task, task_list, tc):
         w = 0
         for task in tasks:
             tss = task.data["ss"]["Fast2"]
+            task_wcet = task.data["C"]
             b = tss["b"]
             if (t <= (b - task.period)) or (b < t):
                 a_t = ceil(t / task.period)
-                tss["a"] = a_t * task.wcet
+                tss["a"] = a_t * task_wcet
                 tss["b"] = a_t * task.period
             w = w + tss["a"]
         return t - tc - w + wc
@@ -35,10 +36,11 @@ def get_slack(task, task_list, tc):
         w = 0
 
         for task in reversed(tasks):
+            task_wcet = task.data["C"]
             tss = task.data["ss"]["Fast2"]
             if (t1_tmp <= tss["b"] - task.period) or (tss["b"] < t1_tmp):
                 _ceil = ceil(t1_tmp / task.period)
-                ceil_a = _ceil * task.wcet
+                ceil_a = _ceil * task_wcet
                 ceil_b = _ceil * task.period
 
                 if ceil_a > tss["a"]:
@@ -60,14 +62,14 @@ def get_slack(task, task_list, tc):
 
         points = []
 
-        #htasks = [task for task in tasks[:-1] if task.data["ss"]["Fast2"]["b"] < di]
-
         for task in tasks[:-1]:
             tss = task.data["ss"]["Fast2"]
             b = tss["b"]
 
+            task_wcet = task.data["C"]
+
             if tmas <= (b - task.period):
-                tss["a"] -= task.wcet
+                tss["a"] -= task_wcet
                 tss["b"] -= task.period
                 b = tss["b"]
 
@@ -114,27 +116,30 @@ def get_slack(task, task_list, tc):
     # immediate higher priority task
     htask = tl[task.identifier - 2]
 
+    htask_wcet = htask.data["C"]
+    task_wcet = task.data["C"]
+
     # corollary 5 (theorem 13) for RM
-    if htask.data["ss"]["di"] + htask.wcet >= task.data["ss"]["di"] >= htask.data["ss"]["ttma"]:
-        return {"slack": htask.data["ss"]["slack"] - task.wcet, "ttma": htask.data["ss"]["ttma"], "cc": ceil.counter,
+    if htask.data["ss"]["di"] + htask_wcet >= task.data["ss"]["di"] >= htask.data["ss"]["ttma"]:
+        return {"slack": htask.data["ss"]["slack"] - task_wcet, "ttma": htask.data["ss"]["ttma"], "cc": ceil.counter,
                 "theorems": [5], "interval_length": 0, "slack_calcs": 0, "points": [], "interval": 0}
 
     # theorem 10
-    interval = task.data["ss"]["di"] - task.data["R"] + task.wcet
+    interval = task.data["ss"]["di"] - task.data["R"] + task_wcet
 
     # workload at tc
     wc = 0
     for task in tl[:task.identifier]:
         a = floor(tc / task.deadline)
-        wc += (a * task.wcet) + (task.job.actual_computation_time if task.job else 0)
+        wc += (a * task.data["C"]) + (task.data["C"] if task.job else 0)
 
     # corollary 4 (theorem 12) for RM
-    if interval <= (htask.data["ss"]["di"] + htask.wcet) < task.data["ss"]["di"]:
-        interval = htask.data["ss"]["di"] + htask.wcet
+    if interval <= (htask.data["ss"]["di"] + htask_wcet) < task.data["ss"]["di"]:
+        interval = htask.data["ss"]["di"] + htask_wcet
 
         # new initial values for kmax and tmax
-        if kmax < htask.data["ss"]["slack"] - task.wcet:
-            kmax = htask.data["ss"]["slack"] - task.wcet
+        if kmax < htask.data["ss"]["slack"] - task_wcet:
+            kmax = htask.data["ss"]["slack"] - task_wcet
             tmax = htask.data["ss"]["ttma"]
 
         theorems.append(12)

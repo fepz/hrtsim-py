@@ -7,6 +7,6 @@ class NegativeSlackException(Exception):
 
 
 class DifferentSlackException(Exception):
-    def __init__(self, t, job, method, results):
+    def __init__(self, t, name, method, results):
         err_str = "\n".join(["\t{0:} {1:} {2:} {3:}".format(m, r["slack"], r["ttma"], r["cc"]) for m, r in results])
-        Exception.__init__(self, 'Slack result differ for job {:s} at t={:f} for method {:s}:\n{:s}'.format(job.name, t, method, err_str))
+        Exception.__init__(self, 'Slack result differ for job {:s} at t={:f} for method {:s}:\n{:s}'.format(name, t, method, err_str))

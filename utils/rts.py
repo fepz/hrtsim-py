@@ -41,15 +41,15 @@ def first_free_slot(rts: list):
     return free
 
 
-def calculate_k(rts: list) -> None:
+def calculate_k(rts: list, vf=1.0) -> None:
     """ Calcula el K de cada tarea (maximo retraso en el instante critico) """
-    rts[0]["k"] = rts[0]["T"] - rts[0]["C"]
+    rts[0]["k"] = rts[0]["T"] - (rts[0]["C"] * vf)
 
     for i, task in enumerate(rts[1:], 1):
         t = 0
         k = 1
         while t <= task["D"]:
-            w = k + task["C"] + sum([math.ceil(float(t) / float(taskp["T"]))*taskp["C"] for taskp in rts[:i]])
+            w = k + (task["C"]*vf) + sum([math.ceil(float(t) / float(taskp["T"]))*(taskp["C"]*vf) for taskp in rts[:i]])
             if t == w:
                 k += 1
             t = w
@@ -77,3 +77,34 @@ def mixrange(s):
             r += range(l, h+1)
     return r
 
+
+def rta(rts, vf=1.0):
+    from math import ceil
+
+    schedulable = True
+
+    t = rts[0]["C"] * vf
+    rts[0]["R"] = rts[0]["C"] * vf
+
+    for idx, task in enumerate(rts[1:], 1):
+        t_mas = t + (task["C"] * vf)
+
+        while schedulable:
+            t = t_mas
+            w = task["C"] * vf
+
+            for jdx, jtask in enumerate(rts[:idx]):
+                w += ceil(t_mas / jtask["T"]) * (jtask["C"] * vf)
+                if w > task["D"]:
+                    schedulable = False
+                    break
+
+            t_mas = w
+            if t == t_mas:
+                task["R"] = t
+                break
+
+        if not schedulable:
+            break
+
+    return schedulable
