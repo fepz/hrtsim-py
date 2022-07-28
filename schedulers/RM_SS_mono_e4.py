@@ -55,14 +55,12 @@ class RM_SS_mono_e4(Scheduler):
         self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
 
         # Select the minimum CPU v/f
-        self._cpu.set_lvl(self._lvlz[6])
-        self.processors[0].set_speed(self._cpu.curlvl[6])
+        self._update_speed()
 
         # Update the non-blocking execution part of each task
         for ptask in self.data["params"]["rts"]["ptasks"]:
             ptask["dvs"]["b"] = ptask["C"] * (self._cpu.curlvl[5] - 1)
 
-        self._icf = self.min_slack_t
 
     def on_activate(self, job):
         self.print('A', job)
