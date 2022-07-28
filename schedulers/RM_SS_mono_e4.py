@@ -126,7 +126,7 @@ class RM_SS_mono_e4(Scheduler):
         if self._icf < self.min_slack_t:
             self._update_speed()
 
-        if self.ready_list:
+        if len(self.ready_list) > 0:
             if preempt:
                 # Select the ready job with the highest priority (lowest period).
                 job = min(self.ready_list, key=lambda x: x.period)
