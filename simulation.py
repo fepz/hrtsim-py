@@ -28,6 +28,9 @@ class SinkLogger(object):
 
 
 class SinkMonitor(list):
+    """
+    Simple monitor. Every observation is discarded.
+    """
     def __init__(self):
         return
 
