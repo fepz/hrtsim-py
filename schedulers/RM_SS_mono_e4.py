@@ -21,7 +21,6 @@ class RM_SS_mono_e4(Scheduler):
         self._energy = 0
         self._cpu = self.data["params"]["cpu"]
         self._cpu.set_lvl(1.0)
-        self._rts = []
         self._lvlz = None
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
