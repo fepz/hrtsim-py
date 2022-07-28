@@ -247,10 +247,11 @@ class GanttCanvas(QWidget):
                     ncolor = self.get_color(evt[1].args.task.identifier)
                 elif evt[1].event == ProcEvent.OVERHEAD:
                     ncolor = (QColor(150, 150, 150), Qt.SolidPattern)
-                    if type(evt[1].args) is tuple:
-                        speed = evt[1].args[1]
                 elif evt[1].event == ProcEvent.IDLE:
                     ncolor = None
+                elif evt[1].event == ProcEvent.SPEED:
+                    ncolor = None
+                    speed = evt[1].args
 
                 if ncolor != color:
                     if current_date > x1 and color:
@@ -276,8 +277,7 @@ class GanttCanvas(QWidget):
 
                 if evt[1].event != JobEvent.ACTIVATE:
                     if color and x1 < current_date:
-                        #print(evt[1].job.cpu.speed, x1, current_date)
-                        self.plot_rect_graph(qp, x1, current_date, color, c ,evt[1].job.cpu.speed)
+                        self.plot_rect_graph(qp, x1, current_date, color, c, evt[1].job.cpu.speed)
                     if evt[1].event == JobEvent.EXECUTE:
                         color = self.get_color(task.identifier)
                     elif evt[1].event == JobEvent.PREEMPTED:
