@@ -131,7 +131,9 @@ def get_slack(task, task_list, tc):
     wc = 0
     for task in tl[:task.identifier]:
         a = floor(tc / task.deadline)
-        wc += (a * task.data["C"]) + (task.data["C"] if task.job else 0)
+        wc += (a * task.data["C"])
+        if task.job and task.job.computation_time > 0:
+            wc += task.data["C"]
 
     # corollary 4 (theorem 12) for RM
     if interval <= (htask.data["ss"]["di"] + htask_wcet) < task.data["ss"]["di"]:

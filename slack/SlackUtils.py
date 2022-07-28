@@ -28,20 +28,25 @@ def reduce_slacks(tasks, amount, t):
 def get_minimum_slack(tasks):
     # Find the system minimum slack and the time at which it occurs
     from sys import maxsize
+    from math import fabs, isclose
+
     _min_slack = maxsize
     _min_slack_t = 0
+    _min_slack_task = None
 
     for task in tasks:
         slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
-        if slack <= _min_slack:
-            if slack == _min_slack:
+        if isclose(slack, _min_slack) or (slack < _min_slack):
+            if isclose(slack, _min_slack):
                 if _min_slack_t <= ttma:
                     _min_slack_t = ttma
+                    _min_slack_task = task
             else:
-               _min_slack = slack
-               _min_slack_t = ttma
+                _min_slack = slack
+                _min_slack_t = ttma
+                _min_slack_task = task
 
-    return (_min_slack, _min_slack_t)
+    return (_min_slack, _min_slack_t, task)
 
 
 def multiple_slack_calc(tc, task, tasks, slack_methods: list) -> dict:

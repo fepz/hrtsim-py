@@ -29,6 +29,10 @@ class RM_SS_mono_e4(Scheduler):
                 self._lvlz = lvl
                 break
 
+        if self._lvlz is None:
+            print("No schedulable.")
+            sys.exit(1)
+
         # Update the WCET of each task
         for task in self.data["params"]["rts"]["ptasks"]:
             task["C"] = task["C"] * self._lvlz[5]
@@ -52,7 +56,7 @@ class RM_SS_mono_e4(Scheduler):
             task.data["ss"]["slack"], task.data["ss"]["ttma"] = self._calc_slack(0, task)
 
         # Find the system minimum slack and the time at which it occurs
-        self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
+        self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
 
         # Select the minimum CPU v/f
         self._update_speed()
@@ -80,7 +84,7 @@ class RM_SS_mono_e4(Scheduler):
         # Calculate this task new slack.
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
         # Find the system minimum slack and the time at which it occurs.
-        self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
+        self.min_slack, self.min_slack_t, _ = get_minimum_slack(self.task_list)
         # Compute energy consumption.
         self._energy += job.computation_time * self._cpu.curlvl[3]
         # Log event.
@@ -102,7 +106,7 @@ class RM_SS_mono_e4(Scheduler):
             # Decrement higher priority tasks' slack.
             reduce_slacks(self.task_list[:(cpu.running.task.identifier - 1)], job_runtime, tc)
             # Find the system minimum slack and the time at which it occurs
-            self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
+            self.min_slack, self.min_slack_t, _ = get_minimum_slack(self.task_list)
             # If the job is still executing its B part, do not preempt.
             #if cpu.running.computation_time <= cpu.running.task.data["dvs"]["b"]:
             #    preempt = False
@@ -116,14 +120,16 @@ class RM_SS_mono_e4(Scheduler):
                 # Record energy consumption
                 self._energy += elapsed_idle_time * self._cpu.curlvl[3]
                 # Find the system minimum slack and the time at which it occurs
-                self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
+                self.min_slack, self.min_slack_t, _ = get_minimum_slack(self.task_list)
                 #  Restore the CPU v/f
-                self._update_speed()
+                self._restore_speed()
                 # Reset the idle start time.
                 self.idle_start = 0
 
         # New ICF?
-        if self._icf < self.min_slack_t:
+        #if self._icf < self.min_slack_t:
+        #    self._update_speed()
+        if tc >= self._icf:
             self._update_speed()
 
         if len(self.ready_list) > 0:
@@ -146,9 +152,9 @@ class RM_SS_mono_e4(Scheduler):
         return job, cpu
 
     def _print(self, event, job):
-        print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{}\t{:1.3f}".format(
+        print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{:1.3f}\t{}\t{:1.3f}".format(
             self.sim.now() / self.sim.cycles_per_ms, job.name, event,
-            job.cpu.speed, self._cpu.curlvl[6], self._cpu.curlvl[0], self._energy))
+            self.f_min, job.cpu.speed, self._cpu.curlvl[6], self._cpu.curlvl[0], self._energy))
 
     def _calc_slack(self, tc, task):
         ss_result = multiple_slack_calc(tc, task, self.task_list, self.data["params"]["ss_methods"])
@@ -160,4 +166,10 @@ class RM_SS_mono_e4(Scheduler):
         self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc)) * self._lvlz[6]
         self._cpu.set_lvl(self.f_min)
         self.processors[0].set_speed(self._cpu.curlvl[6])
+        self._lvlb = self._cpu.curlvl
         self._icf = self.min_slack_t
+
+    def _restore_speed(self):
+        self._cpu.set_lvl(self._lvlb[6])
+        self.processors[0].set_speed(self._cpu.curlvl[6])
+

@@ -73,7 +73,9 @@ def get_slack(task, task_list, tc):
     wc = 0
     for task in tl[:task.identifier]:
         a = floor(tc / task.deadline)
-        wc += (a * task.data["C"]) + (task.data["C"] if task.job else 0)
+        wc += (a * task.data["C"])
+        if task.job and task.job.computation_time > 0:
+            wc += task.data["C"]
 
     # calculate slack in deadline
     k2, w = slackcalc(tl[:task.identifier], tc, task.data["ss"]["di"], wc)
