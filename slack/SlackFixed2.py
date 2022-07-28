@@ -25,7 +25,7 @@ def get_slack(task, task_list, tc):
             b = task.data["ss"]["Fixed2"]["b"]
             if (t > b) or (t <= (b - task.period)):
                 a_t = ceil(t / task.period)
-                task.data["ss"]["Fixed2"]["a"] = a_t * task.wcet
+                task.data["ss"]["Fixed2"]["a"] = a_t * task.data["C"]
                 task.data["ss"]["Fixed2"]["b"] = a_t * task.period
             w = w + task.data["ss"]["Fixed2"]["a"]
         return t - tc - w + wc, w
@@ -54,26 +54,26 @@ def get_slack(task, task_list, tc):
     htask = tl[task.identifier - 2]
 
     # corollary 2 (theorem 5)
-    if (htask.data["ss"]["di"] + htask.wcet >= task.data["ss"]["di"]) and (task.data["ss"]["di"] >= htask.data["ss"]["ttma"]):
+    if (htask.data["ss"]["di"] + htask.data["C"] >= task.data["ss"]["di"]) and (task.data["ss"]["di"] >= htask.data["ss"]["ttma"]):
         theorems.append(5)
-        return {"slack": htask.data["ss"]["slack"] - task.wcet, "ttma": htask.data["ss"]["ttma"], "cc": ceil.counter,
+        return {"slack": htask.data["ss"]["slack"] - task.data["C"], "ttma": htask.data["ss"]["ttma"], "cc": ceil.counter,
                 "theorems": theorems, "interval_length": 0, "slack_calcs": slackcalc.counter}
 
     # theorem 3
-    intervalo = xi + (task.deadline - task.data["R"]) + task.wcet
+    intervalo = xi + (task.deadline - task.data["R"]) + task.data["C"]
 
     # corollary 1 (theorem 4)
-    if intervalo <= (htask.data["ss"]["di"] + htask.wcet) <= task.data["ss"]["di"]:
-        intervalo = htask.data["ss"]["di"] + htask.wcet
+    if intervalo <= (htask.data["ss"]["di"] + htask.data["C"]) <= task.data["ss"]["di"]:
+        intervalo = htask.data["ss"]["di"] + htask.data["C"]
         tmax = htask.data["ss"]["ttma"]
-        kmax = htask.data["ss"]["slack"] - task.wcet
+        kmax = htask.data["ss"]["slack"] - task.data["C"]
         theorems.append(4)
 
     # workload at t
     wc = 0
     for task in tl[:task.identifier]:
         a = floor(tc / task.deadline)
-        wc += (a * task.wcet) + (task.job.actual_computation_time if task.job else 0)
+        wc += (a * task.data["C"]) + (task.data["C"] if task.job else 0)
 
     # calculate slack in deadline
     k2, w = slackcalc(tl[:task.identifier], tc, task.data["ss"]["di"], wc)
