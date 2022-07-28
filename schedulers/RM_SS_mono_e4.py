@@ -49,7 +49,7 @@ class RM_SS_mono_e4(Scheduler):
 
         # Calculate slack at t=0
         for task in self.task_list:
-            task.data["ss"]["slack"], task.data["ss"]["ttma"] = self.calc_slack(0, task)
+            task.data["ss"]["slack"], task.data["ss"]["ttma"] = self._calc_slack(0, task)
 
         # Find the system minimum slack and the time at which it occurs
         self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
@@ -61,9 +61,8 @@ class RM_SS_mono_e4(Scheduler):
         for ptask in self.data["params"]["rts"]["ptasks"]:
             ptask["dvs"]["b"] = ptask["C"] * (self._cpu.curlvl[5] - 1)
 
-
     def on_activate(self, job):
-        self.print('A', job)
+        self._print('A', job)
         self.ready_list.append(job)
         job.cpu.resched()
 
@@ -78,13 +77,13 @@ class RM_SS_mono_e4(Scheduler):
         # Decrement higher priority tasks' slack.
         reduce_slacks(self.task_list[:(job.task.identifier - 1)], job_runtime, tc)
         # Calculate this task new slack.
-        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self.calc_slack(tc, job.task)
+        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
         # Find the system minimum slack and the time at which it occurs.
         self.min_slack, self.min_slack_t = get_minimum_slack(self.task_list)
         # Compute energy consumption.
         self._energy += job.computation_time * self._cpu.curlvl[3]
         # Log event.
-        self.print('E', job)
+        self._print('E', job)
         # Remove the job from the CPU and reschedule
         self.ready_list.remove(job)
         job.cpu.resched()
@@ -132,7 +131,7 @@ class RM_SS_mono_e4(Scheduler):
                 job = min(self.ready_list, key=lambda x: x.period)
                 # Update the execution start time.
                 job.task.data["ss"]["start_exec_time"] = self.sim.now()
-                self.print('S', job)
+                self._print('S', job)
             else:
                 # Do not remove the currently running job on the CPU.
                 job = cpu.running
@@ -145,12 +144,12 @@ class RM_SS_mono_e4(Scheduler):
 
         return job, cpu
 
-    def print(self, event, job):
+    def _print(self, event, job):
         print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{}\t{:1.3f}".format(
             self.sim.now() / self.sim.cycles_per_ms, job.name, event,
             job.cpu.speed, self._cpu.curlvl[6], self._cpu.curlvl[0], self._energy))
 
-    def calc_slack(self, tc, task):
+    def _calc_slack(self, tc, task):
         ss_result = multiple_slack_calc(tc, task, self.task_list, self.data["params"]["ss_methods"])
         return ss_result["slack"], ss_result["ttma"]
 
