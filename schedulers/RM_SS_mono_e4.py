@@ -71,7 +71,8 @@ class RM_SS_mono_e4(Scheduler):
         tc = self.sim.now() / self.sim.cycles_per_ms
         # Verify deadline.
         if job.exceeded_deadline:
-            raise MissedDeadlineException(tc, job)
+            #raise MissedDeadlineException(tc, job)
+            print("{:03.2f}\t{}\tDEADLINE MISS".format(tc, job.name))
         # Executed time in ms since last execution.
         job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
         # Decrement higher priority tasks' slack.
