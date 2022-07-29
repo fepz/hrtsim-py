@@ -46,7 +46,7 @@ def get_minimum_slack(tasks):
                 _min_slack_t = ttma
                 _min_slack_task = task
 
-    return (_min_slack, _min_slack_t, task)
+    return (_min_slack, _min_slack_t, _min_slack_task)
 
 
 def multiple_slack_calc(tc, task, tasks, slack_methods: list) -> dict:

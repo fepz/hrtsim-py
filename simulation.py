@@ -115,8 +115,8 @@ def run_simulation(rts, args):
         # Creates a SimSo model.
         model = Model(cfg)
 
-        # Additional parameters needed by the scheduler
-        model.scheduler.data["params"] = params
+        # Parameters needed by the scheduler
+        model.scheduler.data = params
 
         # Discard trace information to reduce memory footprint.
         if not params["gantt"]:
@@ -155,7 +155,7 @@ def run_simulation(rts, args):
         from PyQt5.QtWidgets import QApplication
         app = QApplication(sys.argv)
         ex = create_gantt_window(result["model"])
-        return app.exec_()
+        app.exec_()
 
     return result
 
