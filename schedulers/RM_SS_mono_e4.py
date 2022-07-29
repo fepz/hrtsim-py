@@ -3,7 +3,7 @@ Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing and
 """
 import sys
 
-from simso.core import Scheduler
+from simso.core import Scheduler, Timer
 from schedulers.MissedDeadlineException import MissedDeadlineException
 from slack.SlackUtils import reduce_slacks, multiple_slack_calc, get_minimum_slack
 from utils.rts import calculate_k, rta
@@ -21,6 +21,8 @@ class RM_SS_mono_e4(Scheduler):
         self._cpu.set_lvl(1.0)
         self._lvlz = None
         self._update_icf = False
+        self._preempt = True
+        self._finb = False
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
         for lvl in self._cpu.lvls:
@@ -42,7 +44,7 @@ class RM_SS_mono_e4(Scheduler):
         for ptask in self.data["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
             ptask["ss"] = {'slack': 0, 'ttma': 0, 'di': 0}
-            ptask["dvs"] = {'a': ptask["C"], 'b': 0}
+            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'brun': False}
             for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
@@ -66,7 +68,8 @@ class RM_SS_mono_e4(Scheduler):
     def on_activate(self, job):
         self._print('A', job)
         self.ready_list.append(job)
-        job.cpu.resched()
+        if self._preempt:
+            job.cpu.resched()
 
     def on_terminated(self, job):
         # Current simulation time.
@@ -98,20 +101,21 @@ class RM_SS_mono_e4(Scheduler):
     def schedule(self, cpu):
         # Current simulation time
         tc = self.sim.now() / self.sim.cycles_per_ms
-        # Preempt
-        preempt = True
         job = None
 
         if cpu.running:
             # Current job executed time in ms.
             job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
-            # Decrement higher priority tasks' slack.
-            reduce_slacks(self.task_list[:(cpu.running.task.identifier - 1)], job_runtime, tc)
+            # Check if the B part has ended
+            if self._finb is True:
+                reduce_slacks(self.task_list, job_runtime, tc)
+                self._preempt = True
+                self._finb = False
+            else:
+                # Decrement higher priority tasks' slack.
+                reduce_slacks(self.task_list[:(cpu.running.task.identifier - 1)], job_runtime, tc)
             # Find the system minimum slack and the time at which it occurs
             self.min_slack, self.min_slack_t, _ = get_minimum_slack(self.task_list)
-            # If the job is still executing its B part, do not preempt.
-            #if cpu.running.computation_time <= cpu.running.task.data["dvs"]["b"]:
-            #    preempt = False
         else:
             # compute idle time
             if self.idle_start > 0:
@@ -129,21 +133,24 @@ class RM_SS_mono_e4(Scheduler):
                 self.idle_start = 0
 
         # New ICF?
-        #if self._icf < self.min_slack_t:
-        #    self._update_speed()
-        #if tc >= self._icf:
-        #    self._update_speed()
         if self._update_icf is True:
             self._update_icf = False
             self._update_speed()
 
         if len(self.ready_list) > 0:
-            if preempt:
+            if self._preempt:
                 # Select the ready job with the highest priority (lowest period).
                 job = min(self.ready_list, key=lambda x: x.period)
                 # Update the execution start time.
                 job.task.data["ss"]["start_exec_time"] = self.sim.now()
                 self._print('S', job)
+
+                if job != cpu.running:
+                    if job.computation_time == 0 and job.task.data["dvs"]["b"] > 0:
+                        self._preempt = False
+                        self._finb = False
+                        t = Timer(self.sim, self._timer, [], job.task.data["dvs"]["b"], cpu=self.processors[0])
+                        t.start()
             else:
                 # Do not remove the currently running job on the CPU.
                 job = cpu.running
@@ -176,7 +183,16 @@ class RM_SS_mono_e4(Scheduler):
         self.processors[0].set_speed(self._cpu.curlvl[6])
         self._lvlb = self._cpu.curlvl
 
+        # Update the non-blocking execution part of each task
+        for ptask in self.data["rts"]["ptasks"]:
+            ptask["dvs"]["b"] = ptask["C"] * (self._cpu.curlvl[5] - 1)
+
     def _restore_speed(self):
         self._cpu.set_lvl(self._lvlb[6])
         self.processors[0].set_speed(self._cpu.curlvl[6])
+
+    def _timer(self):
+        self._finb = True
+        self.processors[0].resched()
+
 
