@@ -16,7 +16,7 @@ class LPFPS(Scheduler):
         self._ready_list = []
         self._early_activation = sys.maxsize
         self._energy = 0
-        self._cpu = self.data["params"]["cpu"]
+        self._cpu = self.data["cpu"]
         self._cpu.set_lvl(1.0)
 
     def on_activate(self, job):
