@@ -32,6 +32,16 @@ class Cpu:
                 self._current_lvl = lvl
                 return
 
+    def get_adjacent_lvls(self, freq):
+        lvl_u = None
+        lvl_d = None
+        for i, lvl in enumerate(self.lvls):
+            if lvl[6] >= freq:
+                lvl_u = lvl
+                lvl_d = self.lvls[i - 1]
+                break
+        return (lvl_u, lvl_d)
+
     def get_lvl(self, lvl):
         return self._cpuinfo["lvls"][lvl]
 

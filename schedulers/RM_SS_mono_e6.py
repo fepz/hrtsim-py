@@ -1,7 +1,7 @@
 """
 Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing and energy consumption.
 
-v5: this is the one ... well, not.
+v6: like v5, but with two v/f per icf
 
 """
 import sys
@@ -12,7 +12,7 @@ from slack.SlackUtils import reduce_slacks, multiple_slack_calc, get_minimum_sla
 from utils.rts import calculate_k, rta
 
 
-class RM_SS_mono_e5(Scheduler):
+class RM_SS_mono_e6(Scheduler):
 
     def init(self):
         self.ready_list = []
@@ -54,7 +54,7 @@ class RM_SS_mono_e5(Scheduler):
         for ptask in self.data["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
             ptask["ss"] = {'slack': 0, 'ttma': 0, 'di': 0}
-            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'brun': False}
+            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False}
             for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
@@ -104,7 +104,7 @@ class RM_SS_mono_e5(Scheduler):
     def schedule(self, cpu):
         # Current simulation time
         tc = self.sim.now() / self.sim.cycles_per_ms
-        job = None
+        job = cpu.running
 
         if len(self.ready_list) > 0:
             if cpu.running:
@@ -153,14 +153,13 @@ class RM_SS_mono_e5(Scheduler):
                     if job.computation_time == 0 and job.task.data["dvs"]["b"] > 0:
                         self._preempt = False
                         self._finb = False
+                        self._change_speed(job)
                         t = Timer(self.sim, self._timer, [], job.task.data["dvs"]["b"], cpu=self.processors[0])
                         t.start()
-            else:
-                # Do not remove the currently running job on the CPU.
-                job = cpu.running
 
         else:
             # Record idle time start
+            job = None
             self.idle_start = self.sim.now()
             # Change to the lowest CPU v/f level
             self._lvlb = self._cpu.curlvl
@@ -186,15 +185,26 @@ class RM_SS_mono_e5(Scheduler):
         tc = self.sim.now() / self.sim.cycles_per_ms
         self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc)) * self._lvlz[6]
 
-        self._cpu.set_lvl(self.f_min)
-        self.processors[0].set_speed(self._cpu.curlvl[6])
+        #self._cpu.set_lvl(self.f_min)
+        #self.processors[0].set_speed(self._cpu.curlvl[6])
+
+        # level p-1 and p
+        self.lvl_tup = self._cpu.get_adjacent_lvls(self.f_min)
 
         # slack sobrante
-        self.min_slack_s = (self.min_slack_t - tc) * (1 - (self.f_min / (self._lvlz[0] / self._cpu.curlvl[0]) ))
+        self.min_slack_s = (self.min_slack_t - tc) - (1 - (self.f_min / self.lvl_tup[0][0]) )
 
         # Update the non-blocking execution part of each task
         for ptask in self.data["rts"]["ptasks"]:
-            ptask["dvs"]["b"] = ptask["C"] * ((self._lvlz[0] / self._cpu.curlvl[0]) - 1)
+            ptask["dvs"]["b"] = ptask["C"] * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
+            ptask["dvs"]["bp"] = ptask["C"] * ((self._lvlz[0] / self.lvl_tup[1][0]) - 1)
+
+    def _change_speed(self, job):
+        if self.min_slack_s >= job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"]:
+            self._cpu.set_lvl(self.lvl_tup[1][6])
+        else:
+            self._cpu.set_lvl(self.lvl_tup[0][6])
+        self.processors[0].set_speed(self._cpu.curlvl[6])
 
     def _restore_speed(self):
         self._cpu.set_lvl(self._lvlb[6])
