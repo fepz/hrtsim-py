@@ -18,6 +18,7 @@ class RM_SS_mono_e6(Scheduler):
         self.ready_list = []
         self.min_slack = 0
         self.min_slack_t = 0
+        self.min_slack_s = 0
         self.idle_start = 0
         self._energy = 0
         self._cpu = self.data["cpu"]
@@ -28,6 +29,7 @@ class RM_SS_mono_e6(Scheduler):
         self._finb = False
         self.f_min = 1.0
         self._lvlb = None
+        self._last_activation_time = -1
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
         for lvl in self._cpu.lvls:
@@ -54,7 +56,7 @@ class RM_SS_mono_e6(Scheduler):
         for ptask in self.data["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
             ptask["ss"] = {'slack': 0, 'ttma': 0, 'di': 0}
-            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False}
+            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False, 'wb': 'b'}
             for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
@@ -68,11 +70,15 @@ class RM_SS_mono_e6(Scheduler):
         # Find the system minimum slack and the time at which it occurs
         self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
 
+        self._update_speed()
+
     def on_activate(self, job):
         self._print('A', job)
         self.ready_list.append(job)
-        if self._preempt:
-            job.cpu.resched()
+        if self._last_activation_time < self.sim.now():
+            self._last_activation_time = self.sim.now()
+            if self._preempt:
+                job.cpu.resched()
 
     def on_terminated(self, job):
         # Current simulation time.
@@ -112,6 +118,10 @@ class RM_SS_mono_e6(Scheduler):
                 job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
                 # Check if the B part has ended
                 if self._finb is True:
+                    if job.task.data["dvs"]["wb"] == "bp":
+                        self.min_slack_s -= (job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"])
+                    else:
+                        self.min_slack_s -= job.task.data["dvs"]["b"]
                     reduce_slacks(self.task_list, job_runtime, tc)
                     self._preempt = True
                     self._finb = False
@@ -141,6 +151,7 @@ class RM_SS_mono_e6(Scheduler):
             if self._update_icf is True:
                 self._update_icf = False
                 self._update_speed()
+                print("new icf {}".format(self.sim.now() / self.sim.cycles_per_ms))
 
             if self._preempt:
                 # Select the ready job with the highest priority (lowest period).
@@ -150,21 +161,21 @@ class RM_SS_mono_e6(Scheduler):
                 self._print('S', job)
 
                 if job != cpu.running:
-                    if job.computation_time == 0 and job.task.data["dvs"]["b"] > 0:
+                    if job.computation_time == 0:
                         self._preempt = False
                         self._finb = False
                         self._change_speed(job)
-                        t = Timer(self.sim, self._timer, [], job.task.data["dvs"]["b"], cpu=self.processors[0])
+                        wb = job.task.data["dvs"]["wb"]
+                        t = Timer(self.sim, self._timer, [], job.task.data["dvs"][wb], cpu=self.processors[0])
                         t.start()
 
         else:
             # Record idle time start
-            job = None
             self.idle_start = self.sim.now()
             # Change to the lowest CPU v/f level
             self._lvlb = self._cpu.curlvl
-            self._cpu.set_lvl(0)
-            self.processors[0].set_speed(self._cpu.curlvl[6])
+            # Minimum cpu speed
+            self._change_speed(None)
 
         return job, cpu
 
@@ -185,14 +196,11 @@ class RM_SS_mono_e6(Scheduler):
         tc = self.sim.now() / self.sim.cycles_per_ms
         self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc)) * self._lvlz[6]
 
-        #self._cpu.set_lvl(self.f_min)
-        #self.processors[0].set_speed(self._cpu.curlvl[6])
-
         # level p-1 and p
         self.lvl_tup = self._cpu.get_adjacent_lvls(self.f_min)
 
         # slack sobrante
-        self.min_slack_s = (self.min_slack_t - tc) - (1 - (self.f_min / self.lvl_tup[0][0]) )
+        self.min_slack_s = (self.min_slack_t - tc) * (1 - (self.f_min / self.lvl_tup[0][6]) )
 
         # Update the non-blocking execution part of each task
         for ptask in self.data["rts"]["ptasks"]:
@@ -200,11 +208,17 @@ class RM_SS_mono_e6(Scheduler):
             ptask["dvs"]["bp"] = ptask["C"] * ((self._lvlz[0] / self.lvl_tup[1][0]) - 1)
 
     def _change_speed(self, job):
-        if self.min_slack_s >= job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"]:
-            self._cpu.set_lvl(self.lvl_tup[1][6])
+        if job is not None:
+            if self.min_slack_s >= job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"]:
+                self._cpu.set_lvl(self.lvl_tup[1][6])
+                job.task.data["dvs"]["wb"] = "bp"
+            else:
+                self._cpu.set_lvl(self.lvl_tup[0][6])
+                job.task.data["dvs"]["wb"] = "b"
+            self.processors[0].set_speed(self._cpu.curlvl[6])
         else:
-            self._cpu.set_lvl(self.lvl_tup[0][6])
-        self.processors[0].set_speed(self._cpu.curlvl[6])
+            self._cpu.set_lvl(0)
+            self.processors[0].set_speed(self._cpu.curlvl[6])
 
     def _restore_speed(self):
         self._cpu.set_lvl(self._lvlb[6])
