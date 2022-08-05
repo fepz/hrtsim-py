@@ -28,6 +28,7 @@ class RM_SS_mono_e5(Scheduler):
         self._finb = False
         self.f_min = 1.0
         self._lvlb = None
+        self._last_activation_time = -1
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
         for lvl in self._cpu.lvls:
@@ -71,8 +72,10 @@ class RM_SS_mono_e5(Scheduler):
     def on_activate(self, job):
         self._print('A', job)
         self.ready_list.append(job)
-        if self._preempt:
-            job.cpu.resched()
+        if self._last_activation_time < self.sim.now():
+            self._last_activation_time = self.sim.now()
+            if self._preempt:
+                job.cpu.resched()
 
     def on_terminated(self, job):
         # Current simulation time.
