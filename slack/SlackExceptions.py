@@ -1,7 +1,7 @@
 class NegativeSlackException(Exception):
     def __init__(self, t, task, method):
-        if "slack" in task.data:
-            Exception.__init__(self, 'Negative slack! method {:s}, task {:s}, t={:f}, s={:f}'.format(method, task.name, t, task.data['ss']['slack']))
+        if "ss" in task.data:
+            Exception.__init__(self, 'Negative slack! method {:s}, task {:s}, t={:f}, s={:f}'.format(method, task.job.name, t, task.data['ss']['slack']))
         else:
             Exception.__init__(self, 'Negative slack! method {:s}, task {:s}, t={:f}'.format(method, task.name, t))
 
