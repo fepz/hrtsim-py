@@ -178,9 +178,6 @@ class RM_SS_mono_e8(Scheduler):
             self.f_min, job.cpu.speed, self._cpu.curlvl[6], self._cpu.curlvl[0], self._energy,
             '\t'.join(["{:03.2f}".format(task.data["ss"]["slack"]) for task in self.task_list])))
 
-    def _print_slacks(self, tasks):
-        print(' '.join(["{:03.2f}".format(task.data["ss"]["slack"]) for task in tasks]))
-
     def _calc_slack(self, tc, task):
         ss_result = multiple_slack_calc(tc, task, self.task_list, self.data["ss_methods"])
         return ss_result["slack"], ss_result["ttma"]
