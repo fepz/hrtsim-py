@@ -15,12 +15,13 @@ def get_slack_methods():
 
 
 def reduce_slacks(tasks, amount, t):
-    from math import fabs
+    from math import isclose, fabs
     for task in tasks:
         task.data["ss"]["slack"] -= amount
-        # DIRTY HACK
-        if (fabs(task.data["ss"]["slack"]) < 0.00005):
+        if isclose(task.data["ss"]["slack"], 0, abs_tol=1e-9):
             task.data["ss"]["slack"] = 0
+        #if (fabs(task.data["ss"]["slack"] < 0.00005)):
+        #    task.data["ss"]["slack"] = 0
         if task.data["ss"]["slack"] < 0:
             raise NegativeSlackException(t, task, "Scheduler")
 
@@ -28,7 +29,7 @@ def reduce_slacks(tasks, amount, t):
 def get_minimum_slack(tasks):
     # Find the system minimum slack and the time at which it occurs
     from sys import maxsize
-    from math import fabs, isclose
+    from math import isclose
 
     _min_slack = maxsize
     _min_slack_t = 0
