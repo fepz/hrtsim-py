@@ -220,15 +220,3 @@ class RM_SS_mono_e8(Scheduler):
     def _timer(self):
         self._finb = True
         self.processors[0].resched()
-
-    def _wc(self, tc):
-        from math import floor
-        wc = 0
-        for task in self.task_list:
-            a = floor(tc / task.deadline)
-            wc += (a * task.data["C"])
-            if task.job:
-                wc += task.data["C"]
-
-        return wc
-
