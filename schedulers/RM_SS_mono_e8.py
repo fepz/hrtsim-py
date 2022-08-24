@@ -145,19 +145,18 @@ class RM_SS_mono_e8(Scheduler):
             # Find the system minimum slack and the time at which it occurs
             self.min_slack, self.min_slack_t, _ = get_minimum_slack(self.task_list)
 
-            if self._preempt:
-                # Select the ready job with the highest priority (lowest period).
-                job = min(self.ready_list, key=lambda x: x.period)
-                # Update the execution start time.
-                job.task.data["ss"]["start_exec_time"] = self.sim.now()
+            # Select the ready job with the highest priority (lowest period).
+            job = min(self.ready_list, key=lambda x: x.period)
+            # Update the execution start time.
+            job.task.data["ss"]["start_exec_time"] = self.sim.now()
 
-                # Launch the scheduler when the task finish its B part.
-                if job != cpu.running and job.computation_time == 0:
-                    self._preempt = False
-                    self._change_speed(job)
-                    wb = job.task.data["dvs"]["wb"]
-                    t = Timer(self.sim, self._timer, [], job.task.data["dvs"][wb], cpu=self.processors[0])
-                    t.start()
+            # Launch the scheduler when the task finish its B part.
+            if job != cpu.running and job.computation_time == 0:
+                self._preempt = False
+                self._change_speed(job)
+                wb = job.task.data["dvs"]["wb"]
+                t = Timer(self.sim, self._timer, [], job.task.data["dvs"][wb], cpu=self.processors[0])
+                t.start()
 
         else:
             # Record idle time start
