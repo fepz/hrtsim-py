@@ -29,6 +29,7 @@ class RM_SS_mono_e10(Scheduler):
         self.f_min = 1.0
         self._lvlb = None
         self._last_activation_time = -1
+        self._icf_t = 0
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
         for lvl in self._cpu.lvls:
@@ -69,7 +70,7 @@ class RM_SS_mono_e10(Scheduler):
         # Find the system minimum slack and the time at which it occurs
         self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
 
-        self._update_speed()
+        self._update_speed(0)
 
     def on_activate(self, job):
         self._print('A', job)
@@ -102,10 +103,11 @@ class RM_SS_mono_e10(Scheduler):
         self.ready_list.remove(job)
 
         # New ICF?
-        if job.task == self.min_slack_task:
-            self.min_slack_task = min_slack_task
-            self._update_speed()
-            print("new icf {} - {}".format(self.sim.now() / self.sim.cycles_per_ms, self.min_slack_t))
+        #if job.task == self.min_slack_task:
+        #    self.min_slack_task = min_slack_task
+        #    prev_icf_t = self._icf_t
+        #    self._update_speed(self._icf_t)
+        #    print("new icf {} - {}".format(prev_icf_t, self._icf_t))
 
         job.cpu.resched()
 
@@ -148,6 +150,11 @@ class RM_SS_mono_e10(Scheduler):
             # Update the execution start time.
             job.task.data["ss"]["start_exec_time"] = self.sim.now()
 
+            if tc == self._icf_t:
+                prev_icf_t = self._icf_t
+                self._update_speed(self._icf_t)
+                print("new icf {} - {}".format(prev_icf_t, self._icf_t))
+
             # Launch the scheduler when the task finish its B part.
             if job != cpu.running and job.computation_time == 0:
                 self._preempt = False
@@ -179,19 +186,20 @@ class RM_SS_mono_e10(Scheduler):
         ss_result = multiple_slack_calc(tc, task, self.task_list, self.data["ss_methods"])
         return ss_result["slack"], ss_result["ttma"]
 
-    def _update_speed(self):
+    def _update_speed(self, t):
         """
         Update the V/F level of the CPU.
         :return: None
         """
-        tc = self.sim.now() / self.sim.cycles_per_ms
-        self.f_min = ((self.min_slack_t - tc - self.min_slack) / (self.min_slack_t - tc)) * self._lvlz[6]
+        self.f_min = ((self.min_slack_t - t - self.min_slack) / (self.min_slack_t - t)) * self._lvlz[6]
 
         # level p-1 and p
         self.lvl_tup = self._cpu.get_adjacent_lvls(self.f_min)
 
         # slack sobrante
-        self.min_slack_s = (self.min_slack_t - tc) * (1 - (self.f_min / self.lvl_tup[0][6]) )
+        self.min_slack_s = (self.min_slack_t - t) * (1 - (self.f_min / self.lvl_tup[0][6]) )
+
+        self._icf_t = self.min_slack_t
 
         # Update the non-blocking execution part of each task
         for ptask in self.data["rts"]["ptasks"]:
