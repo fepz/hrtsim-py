@@ -10,6 +10,7 @@ from simso.core import Scheduler, Timer
 from schedulers.MissedDeadlineException import MissedDeadlineException
 from slack.SlackUtils import reduce_slacks, multiple_slack_calc, get_minimum_slack
 from utils.rts import calculate_k, rta
+from math import isclose
 
 
 class RM_SS_mono_e10(Scheduler):
@@ -102,13 +103,6 @@ class RM_SS_mono_e10(Scheduler):
         # Remove the job from the CPU and reschedule
         self.ready_list.remove(job)
 
-        # New ICF?
-        #if job.task == self.min_slack_task:
-        #    self.min_slack_task = min_slack_task
-        #    prev_icf_t = self._icf_t
-        #    self._update_speed(self._icf_t)
-        #    print("new icf {} - {}".format(prev_icf_t, self._icf_t))
-
         job.cpu.resched()
 
     def schedule(self, cpu):
@@ -150,10 +144,11 @@ class RM_SS_mono_e10(Scheduler):
             # Update the execution start time.
             job.task.data["ss"]["start_exec_time"] = self.sim.now()
 
-            if tc == self._icf_t:
-                prev_icf_t = self._icf_t
+            # New ICF?
+            if isclose(tc, self._icf_t, rel_tol=0.0005):
+                #prev_icf_t = self._icf_t
                 self._update_speed(self._icf_t)
-                print("new icf {} - {}".format(prev_icf_t, self._icf_t))
+                #print("new icf {} - {}".format(prev_icf_t, self._icf_t))
 
             # Launch the scheduler when the task finish its B part.
             if job != cpu.running and job.computation_time == 0:
