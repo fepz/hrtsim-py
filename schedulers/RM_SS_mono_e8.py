@@ -57,7 +57,7 @@ class RM_SS_mono_e8(Scheduler):
         for ptask in self.data["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
             ptask["ss"] = {'slack': 0, 'ttma': 0, 'di': 0}
-            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False, 'wb': 'b'}
+            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False, 'wb': 'b', 'freq': None}
             for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
@@ -160,6 +160,8 @@ class RM_SS_mono_e8(Scheduler):
                 t = Timer(self.sim, self._timer, [], job.task.data["dvs"][wb], cpu=self.processors[0])
                 t.start()
 
+            self.processors[0].set_speed(job.task.data["dvs"]["freq"][6])
+
         else:
             # Record idle time start
             self.idle_start = self.sim.now()
@@ -212,6 +214,8 @@ class RM_SS_mono_e8(Scheduler):
                 self._cpu.set_lvl(self.lvl_tup[0][6])
                 job.task.data["dvs"]["wb"] = "b"
             self.processors[0].set_speed(self._cpu.curlvl[6])
+
+            job.task.data["dvs"]["freq"] = self._cpu.curlvl
         else:
             self._cpu.set_lvl(0)
             self.processors[0].set_speed(self._cpu.curlvl[6])
