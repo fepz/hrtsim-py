@@ -31,6 +31,7 @@ class RM_SS_mono_e8(Scheduler):
         self._lvlb = None
         self._last_activation_time = -1
         self._icf_t = 0
+        self._icf_calc_flag = False
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
         for lvl in self._cpu.lvls:
@@ -71,6 +72,8 @@ class RM_SS_mono_e8(Scheduler):
         # Find the system minimum slack and the time at which it occurs
         self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
 
+        self._icf_task = self.min_slack_task
+
         self._update_speed(0)
 
     def on_activate(self, job):
@@ -98,11 +101,12 @@ class RM_SS_mono_e8(Scheduler):
         self.min_slack, self.min_slack_t, min_slack_task = get_minimum_slack(self.task_list)
         # Compute energy consumption.
         self._energy += job.computation_time * self._cpu.curlvl[3]
+        if job.task == self._icf_task:
+            self._icf_calc_flag = True
         # Log event.
         self._print('E', job)
         # Remove the job from the CPU and reschedule
         self.ready_list.remove(job)
-
         job.cpu.resched()
 
     def schedule(self, cpu):
@@ -137,9 +141,11 @@ class RM_SS_mono_e8(Scheduler):
                     self._restore_speed()
                     # Reset the idle start time.
                     self.idle_start = 0
+                    # New IFC
+                    self._icf_calc_flag = True
 
             # Find the system minimum slack and the time at which it occurs
-            self.min_slack, self.min_slack_t, _ = get_minimum_slack(self.task_list)
+            self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
 
             # Select the ready job with the highest priority (lowest period).
             job = min(self.ready_list, key=lambda x: x.period)
@@ -147,10 +153,12 @@ class RM_SS_mono_e8(Scheduler):
             job.task.data["ss"]["start_exec_time"] = self.sim.now()
 
             # New ICF?
-            if isclose(tc, self._icf_t, rel_tol=0.0005):
+            if self._icf_calc_flag: # or isclose(tc, self._icf_t, rel_tol=0.0005):
                 prev_icf_t = self._icf_t
-                self._update_speed(self._icf_t)
-                print("new icf {} - {}".format(prev_icf_t, self._icf_t))
+                self._update_speed(tc)
+                print("new icf {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name))
+                self._icf_calc_flag = False
+                self._icf_task = self.min_slack_task
 
             # Launch the scheduler when the task finish its B part.
             if job != cpu.running and job.computation_time == 0:
