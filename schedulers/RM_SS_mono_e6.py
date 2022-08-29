@@ -87,8 +87,6 @@ class RM_SS_mono_e6(Scheduler):
         if job.exceeded_deadline:
             #raise MissedDeadlineException(tc, job)
             print("{:03.2f}\t{}\tDEADLINE MISS".format(tc, job.name))
-        if job.task == self.min_slack_task:
-            self._update_icf = True
         # Executed time in ms since last execution.
         job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
         # Decrement higher priority tasks' slack.
@@ -97,7 +95,8 @@ class RM_SS_mono_e6(Scheduler):
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
         # Find the system minimum slack and the time at which it occurs.
         self.min_slack, self.min_slack_t, min_slack_task = get_minimum_slack(self.task_list)
-        if self._update_icf is True:
+        if job.task == self.min_slack_task:
+            self._update_icf = True
             self.min_slack_task = min_slack_task
         # Compute energy consumption.
         self._energy += job.computation_time * self._cpu.curlvl[3]
@@ -143,7 +142,7 @@ class RM_SS_mono_e6(Scheduler):
                     self.min_slack, self.min_slack_t, _ = get_minimum_slack(self.task_list)
                     #  Restore the CPU v/f
                     self._restore_speed()
-                    self._update_speed()
+                    #self._update_speed()
                     # Reset the idle start time.
                     self.idle_start = 0
 
@@ -228,4 +227,14 @@ class RM_SS_mono_e6(Scheduler):
         self._finb = True
         self.processors[0].resched()
 
+    def _wc(self, tc):
+        from math import floor
+        wc = 0
+        for task in self.task_list:
+            a = floor(tc / task.deadline)
+            wc += (a * task.data["C"])
+            if task.job:
+                wc += task.data["C"]
+
+        return wc
 
