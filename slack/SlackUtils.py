@@ -37,9 +37,10 @@ def get_minimum_slack(tasks):
 
     for task in tasks:
         slack, ttma = task.data["ss"]["slack"], task.data["ss"]["ttma"]
-        if isclose(slack, _min_slack) or (slack < _min_slack):
+        if isclose(slack, _min_slack) or (slack <= _min_slack):
             if isclose(slack, _min_slack):
                 if _min_slack_t <= ttma:
+                    _min_slack = slack
                     _min_slack_t = ttma
                     _min_slack_task = task
             else:
