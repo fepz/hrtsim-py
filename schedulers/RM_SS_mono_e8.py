@@ -184,9 +184,9 @@ class RM_SS_mono_e8(Scheduler):
         return job, cpu
 
     def _print(self, event, job):
-        print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{:1.3f}\t{}\t{:1.3f}\t{}".format(
+        print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{}\t{:1.3f}\t{}".format(
             self.sim.now() / self.sim.cycles_per_ms, job.name, event,
-            self.f_min, job.cpu.speed, self._cpu.curlvl[6], self._cpu.curlvl[0], self._energy,
+            self.f_min, job.cpu.speed, self._cpu.curlvl[6], self._energy,
             '\t'.join(["{:03.2f}".format(task.data["ss"]["slack"]) for task in self.task_list])))
 
     def _calc_slack(self, tc, task):
