@@ -3,7 +3,7 @@ Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing.
 """
 from simso.core import Scheduler
 from schedulers.MissedDeadlineException import MissedDeadlineException
-from slack.SlackUtils import reduce_slacks, multiple_slack_calc
+from slack.SlackUtils import reduce_slacks, multiple_slack_calc, get_minimum_slack
 from utils.rts import calculate_k
 
 
@@ -13,36 +13,34 @@ class RM_SS_mono(Scheduler):
         self.ready_list = []
         self.min_slack = 0
         self.idle_start = 0
-        self._energy = 0
-        self._cpu = self.data["params"]["cpu"]
-        self._cpu.set_lvl(1.0)
+        self._last_activation_time = -1
 
-        calculate_k(self.data["params"]["rts"]["ptasks"])
+        calculate_k(self.data["rts"]["ptasks"])
 
         # Required fields for slack stealing simulation.
-        for ptask in self.data["params"]["rts"]["ptasks"]:
+        for ptask in self.data["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
-
             ptask["ss"] = {'slack': ptask["k"], 'ttma': 0, 'di': 0, 'start_exec_time': 0, 'last_psi': 0,
                            'last_slack': 0, 'ii': 0}
-
-            for ss_method in self.data["params"]["ss_methods"]:
+            for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
-        for atask in self.data["params"]["rts"]["atasks"]:
+        for atask in self.data["rts"]["atasks"]:
             atask["start_exec_time"] = 0
 
-    def on_activate(self, job):
-        # compute idle time
-        if job.cpu.running is None and self.idle_start > 0:
-            elapsed_idle_time = (self.sim.now() - self.idle_start) / self.sim.cycles_per_ms
-            t = self.sim.now() / self.sim.cycles_per_ms
-            reduce_slacks(self.task_list, elapsed_idle_time, t)
-            self.idle_start = 0
+        # Calculate slack at t=0
+        for task in self.task_list:
+            task.data["ss"]["slack"], task.data["ss"]["ttma"] = self._calc_slack(0, task)
 
-        self.print('A', job)
+        # Find the system minimum slack and the time at which it occurs
+        self.min_slack, _, _ = get_minimum_slack(self.task_list)
+
+    def on_activate(self, job):
+        self._print('A', job)
         self.ready_list.append(job)
-        job.cpu.resched()
+        if self._last_activation_time < self.sim.now():
+            self._last_activation_time = self.sim.now()
+            job.cpu.resched()
 
     def on_terminated(self, job):
         # current simulation time
@@ -58,60 +56,61 @@ class RM_SS_mono(Scheduler):
         # decrement higher priority tasks slack
         reduce_slacks(self.task_list[:(job.task.identifier - 1)], job_runtime, tc)
 
-        # calculate task slack
-        ss_result = multiple_slack_calc(tc, job, self.task_list, self.data["params"]["ss_methods"])
+        # Calculate this task new slack.
+        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
 
-        # print the slack results to stdout
-        """
-        for k, v in ss_result["ss_results"]:
-            print("{0:} {1:} {2:} {3:} {4:} {5:} {6:} {7:}".format(job.name.split("_")[1], job.name.split("_")[2], v["cc"], 
-                v["interval_length"], v["slack_calcs"], k, v["interval"], " ".join([str(x) for x in v["points"]])))
-                """
+        # Find the system minimum slack and the time at which it occurs.
+        self.min_slack, _, _ = get_minimum_slack(self.task_list)
 
-        # log results
-        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = ss_result["slack"], ss_result["ttma"]
-
-        # Find system new minimum slack
-        self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
-
-        self.print('E', job)
+        # Log event.
+        self._print('E', job)
 
         # Remove the job from the CPU and reschedule
         self.ready_list.remove(job)
         job.cpu.resched()
 
     def schedule(self, cpu):
-        if cpu.running:
-            # current simulation time
-            tc = self.sim.now() / self.sim.cycles_per_ms
+        # Current simulation time
+        tc = self.sim.now() / self.sim.cycles_per_ms
+        job = cpu.running
 
-            # current job executed time in ms
-            job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
+        if len(self.ready_list) > 0:
+            if cpu.running:
+                # Current job executed time in ms.
+                job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
+                # Decrement higher priority tasks' slack.
+                reduce_slacks(self.task_list[:(cpu.running.task.identifier - 1)], job_runtime, tc)
+            else:
+                # compute idle time
+                if self.idle_start > 0:
+                    # Compute the idle time.
+                    elapsed_idle_time = tc / self.sim.cycles_per_ms
+                    # Reduce tasks' slacks
+                    reduce_slacks(self.task_list, elapsed_idle_time, tc)
+                    # Reset the idle start time.
+                    self.idle_start = 0
 
-            # decrement higher priority tasks slack
-            reduce_slacks(self.task_list[:(cpu.running.task.identifier - 1)], job_runtime, tc)
+            # Find the system minimum slack and the time at which it occurs
+            self.min_slack, _, _ = get_minimum_slack(self.task_list)
 
-            # find system new minimum slack
-            self.min_slack = min([task.data["ss"]["slack"] for task in self.task_list])
-
-        if self.ready_list:
-            # ready job with the highest priority (lowest period)
+            # Select the ready job with the highest priority (lowest period).
             job = min(self.ready_list, key=lambda x: x.period)
-
-            # update execution start time
+            # Update the execution start time.
             job.task.data["ss"]["start_exec_time"] = self.sim.now()
-
-            self.print('S', job)
         else:
-            # idle time start
+            # Record idle time start
             self.idle_start = self.sim.now()
 
-            job = None
+        if job:
+            self._print('S', job)
 
         return job, cpu
 
-    def print(self, event, job):
-        print("{}\t{}\t{:03.2f}\t{:1.1f}\t{:1.1f}\t{:1.1f}".format(job.name, 
-            event, self.sim.now() / self.sim.cycles_per_ms, job.cpu.speed, 
-            self._cpu.curlvl[6], self._energy))
+    def _print(self, event, job):
+        print("{:03.2f}\t{}\t{}\t{}".format(
+            self.sim.now() / self.sim.cycles_per_ms, job.name, event,
+            '\t'.join(["{:03.2f}".format(task.data["ss"]["slack"]) for task in self.task_list])))
 
+    def _calc_slack(self, tc, task):
+        ss_result = multiple_slack_calc(tc, task, self.task_list, self.data["ss_methods"])
+        return ss_result["slack"], ss_result["ttma"]
