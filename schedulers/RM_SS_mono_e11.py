@@ -1,7 +1,7 @@
 """
 Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing and energy consumption.
 
-v11: like v10, but do use a ideal processor
+v11: like v10, but do use an ideal processor
 
 """
 import sys
@@ -46,9 +46,6 @@ class RM_SS_mono_e11(Scheduler):
             for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
-        for atask in self.data["rts"]["atasks"]:
-            atask["start_exec_time"] = 0
-
         # Calculate slack at t=0
         for task in self.task_list:
             task.data["ss"]["slack"], task.data["ss"]["ttma"] = self._calc_slack(0, task)
@@ -65,8 +62,6 @@ class RM_SS_mono_e11(Scheduler):
         # Update the WCET of each task
         #for task in self.data["rts"]["ptasks"]:
         #    task["C"] = task["C"] * (1.0 / self.f_zero)
-
-        calculate_k(self.data["rts"]["ptasks"])#, (1.0 / self.f_zero))
 
         self._icf_task = self.min_slack_task
 
@@ -157,10 +152,11 @@ class RM_SS_mono_e11(Scheduler):
 
             # Launch the scheduler when the task finish its B part.
             if job != cpu.running and job.computation_time == 0:
-                self._preempt = False
-                self._change_speed(job)
-                t = Timer(self.sim, self._timer, [], job.task.data["dvs"]["b"], cpu=self.processors[0])
-                t.start()
+                if job.task.data["dvs"]["b"] > 0:
+                    self._preempt = False
+                    self._change_speed(job)
+                    t = Timer(self.sim, self._timer, [], job.task.data["dvs"]["b"], cpu=self.processors[0])
+                    t.start()
 
         else:
             # Record idle time start
@@ -176,7 +172,7 @@ class RM_SS_mono_e11(Scheduler):
         return job, cpu
 
     def _print(self, event, job):
-        print("{:03.2f}\t{}\t{}\t{:1.3f}\t{:1.3f}\t{}".format(
+        print("{:03.5f}\t{}\t{}\t{:1.5f}\t{:1.3f}\t{}".format(
             self.sim.now() / self.sim.cycles_per_ms, job.name, event, self.f_min, self._energy,
             '\t'.join(["{:03.2f}".format(task.data["ss"]["slack"]) for task in self.task_list])))
 
@@ -194,8 +190,13 @@ class RM_SS_mono_e11(Scheduler):
         self._icf_t = self.min_slack_t
 
         # Update the non-blocking execution part of each task
+        #for ptask in self.data["rts"]["ptasks"]:
+        #    ptask["dvs"]["b"] = ptask["C"] * ((1.0 / self.f_min) - 1)
         for ptask in self.data["rts"]["ptasks"]:
-            ptask["dvs"]["b"] = ptask["C"] * ((1.0 / self.f_min) - 1)
+           ptask["dvs"]["b"] = 0
+
+        for ptask in self.task_list[:self.min_slack_task.identifier]:
+           ptask.data["dvs"]["b"] = ptask.data["C"] * ((1.0 / self.f_min) - 1)
 
     def _change_speed(self, job):
         self.processors[0].set_speed(self.f_min if job is not None else 0)
