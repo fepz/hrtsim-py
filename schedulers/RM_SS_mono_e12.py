@@ -1,7 +1,7 @@
 """
 Rate Monotic algorithm for uniprocessor architectures -- with Slack Stealing and energy consumption.
 
-v8: like v6, but with icf calculated when the task finish
+v12: like v8, but change v/f intra-instance
 
 """
 import sys
@@ -13,7 +13,7 @@ from utils.rts import calculate_k, rta
 from math import isclose
 
 
-class RM_SS_mono_e8(Scheduler):
+class RM_SS_mono_e12(Scheduler):
 
     def init(self):
         self.ready_list = []
