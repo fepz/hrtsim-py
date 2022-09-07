@@ -52,18 +52,13 @@ class RM_SS_mono_e12(Scheduler):
         for task in self.data["rts"]["ptasks"]:
             task["C"] = task["C"] * self._lvlz[5]
 
-        calculate_k(self.data["rts"]["ptasks"], self._lvlz[5])
-
         # Required fields for slack stealing.
         for ptask in self.data["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
             ptask["ss"] = {'slack': 0, 'ttma': 0, 'di': 0}
-            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False, 'wb': 'b', 'freq': None}
+            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False, 'wb': 'b', 'freq': None, 'lvls': None}
             for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
-
-        for atask in self.data["rts"]["atasks"]:
-            atask["start_exec_time"] = 0
 
         # Calculate slack at t=0
         for task in self.task_list:
@@ -115,7 +110,7 @@ class RM_SS_mono_e12(Scheduler):
         job = cpu.running
 
         if len(self.ready_list) > 0:
-            if cpu.running:
+            if job:
                 # Current job executed time in ms.
                 job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
                 # Check if the B part has ended
@@ -154,7 +149,6 @@ class RM_SS_mono_e12(Scheduler):
 
             # New ICF?
             if self._icf_calc_flag: # or isclose(tc, self._icf_t, rel_tol=0.0005):
-                prev_icf_t = self._icf_t
                 self._update_speed(tc)
                 print("new icf {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name))
                 self._icf_calc_flag = False
@@ -168,8 +162,6 @@ class RM_SS_mono_e12(Scheduler):
                     wb = job.task.data["dvs"]["wb"]
                     t = Timer(self.sim, self._timer, [], job.task.data["dvs"][wb], cpu=self.processors[0])
                     t.start()
-
-            self.processors[0].set_speed(job.task.data["dvs"]["freq"][6])
 
         else:
             # Record idle time start
@@ -210,24 +202,24 @@ class RM_SS_mono_e12(Scheduler):
         self._icf_t = self.min_slack_t
 
         # Update the non-blocking execution part of each task
-        for ptask in self.data["rts"]["ptasks"]:
-            ptask["dvs"]["b"] = ptask["C"] * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
-            ptask["dvs"]["bp"] = ptask["C"] * ((self._lvlz[0] / self.lvl_tup[1][0]) - 1)
+        #for ptask in self.data["rts"]["ptasks"]:
+        for ptask in self.task_list[:(self.min_slack_task.identifier)]:
+            ptask.data["dvs"]["b"] = ptask.data["C"] * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
+            ptask.data["dvs"]["bp"] = ptask.data["C"] * ((self._lvlz[0] / self.lvl_tup[1][0]) - 1)
+            ptask.data["dvs"]["lvls"] = self.lvl_tup
 
     def _change_speed(self, job):
         if job is not None:
-            if self.min_slack_s > job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"]:
-                self._cpu.set_lvl(self.lvl_tup[1][6])
+            if self.min_slack_s >= job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"]:
+                self._cpu.set_lvl(job.data["dvs"]["lvls"][1][6])
                 job.task.data["dvs"]["wb"] = "bp"
             else:
-                self._cpu.set_lvl(self.lvl_tup[0][6])
+                self._cpu.set_lvl(job.data["dvs"]["lvls"][0][6])
                 job.task.data["dvs"]["wb"] = "b"
-            self.processors[0].set_speed(self._cpu.curlvl[6])
-
-            job.task.data["dvs"]["freq"] = self._cpu.curlvl
         else:
             self._cpu.set_lvl(0)
-            self.processors[0].set_speed(self._cpu.curlvl[6])
+
+        self.processors[0].set_speed(self._cpu.curlvl[6])
 
     def _restore_speed(self):
         self._cpu.set_lvl(self._lvlb[6])
