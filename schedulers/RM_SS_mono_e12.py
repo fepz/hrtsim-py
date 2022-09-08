@@ -87,11 +87,11 @@ class RM_SS_mono_e12(Scheduler):
             #raise MissedDeadlineException(tc, job)
             print("{:03.2f}\t{}\tDEADLINE MISS".format(tc, job.name))
         # Executed time in ms since last execution.
-        job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
+        job_runtime = (self.sim.now() - job.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
         # Decrement higher priority tasks' slack.
         reduce_slacks(self.task_list[:(job.task.identifier - 1)], job_runtime, tc)
         # Calculate this task new slack.
-        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
+        job.data["ss"]["slack"], job.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
         # Find the system minimum slack and the time at which it occurs.
         self.min_slack, self.min_slack_t, min_slack_task = get_minimum_slack(self.task_list)
         # Compute energy consumption.
@@ -115,8 +115,8 @@ class RM_SS_mono_e12(Scheduler):
                 job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
                 # Check if the B part has ended
                 if self._finb is True:
-                    if job.task.data["dvs"]["wb"] == "bp":
-                        self.min_slack_s -= (job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"])
+                    if job.data["dvs"]["wb"] == "bp":
+                        self.min_slack_s -= (job.data["dvs"]["bp"] - job.data["dvs"]["b"])
                     reduce_slacks(self.task_list, job_runtime, tc)
                     self._preempt = True
                     self._finb = False
@@ -145,7 +145,7 @@ class RM_SS_mono_e12(Scheduler):
             # Select the ready job with the highest priority (lowest period).
             job = min(self.ready_list, key=lambda x: x.period)
             # Update the execution start time.
-            job.task.data["ss"]["start_exec_time"] = self.sim.now()
+            job.data["ss"]["start_exec_time"] = self.sim.now()
 
             # New ICF?
             if self._icf_calc_flag: # or isclose(tc, self._icf_t, rel_tol=0.0005):
@@ -155,12 +155,12 @@ class RM_SS_mono_e12(Scheduler):
                 self._icf_task = self.min_slack_task
 
             # Launch the scheduler when the task finish its B part.
-            if job != cpu.running:    #and job.computation_time == 0:
+            if job != cpu.running:
                 self._change_speed(job)
                 if job.computation_time == 0:
                     self._preempt = False
-                    wb = job.task.data["dvs"]["wb"]
-                    t = Timer(self.sim, self._timer, [], job.task.data["dvs"][wb], cpu=self.processors[0])
+                    wb = job.data["dvs"]["wb"]
+                    t = Timer(self.sim, self._timer, [], job.data["dvs"][wb], cpu=self.processors[0])
                     t.start()
 
         else:
@@ -202,7 +202,6 @@ class RM_SS_mono_e12(Scheduler):
         self._icf_t = self.min_slack_t
 
         # Update the non-blocking execution part of each task
-        #for ptask in self.data["rts"]["ptasks"]:
         for ptask in self.task_list[:(self.min_slack_task.identifier)]:
             ptask.data["dvs"]["b"] = ptask.data["C"] * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
             ptask.data["dvs"]["bp"] = ptask.data["C"] * ((self._lvlz[0] / self.lvl_tup[1][0]) - 1)
@@ -210,12 +209,12 @@ class RM_SS_mono_e12(Scheduler):
 
     def _change_speed(self, job):
         if job is not None:
-            if self.min_slack_s >= job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"]:
+            if self.min_slack_s >= job.data["dvs"]["bp"] - job.data["dvs"]["b"]:
                 self._cpu.set_lvl(job.data["dvs"]["lvls"][1][6])
-                job.task.data["dvs"]["wb"] = "bp"
+                job.data["dvs"]["wb"] = "bp"
             else:
                 self._cpu.set_lvl(job.data["dvs"]["lvls"][0][6])
-                job.task.data["dvs"]["wb"] = "b"
+                job.data["dvs"]["wb"] = "b"
         else:
             self._cpu.set_lvl(0)
 
