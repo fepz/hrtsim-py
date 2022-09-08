@@ -152,7 +152,7 @@ class RM_SS_mono_e10(Scheduler):
             # New ICF?
             if self._icf_calc_flag:
                 self._update_speed(tc)
-                print("new icf {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name))
+                #print("new icf {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name))
                 self._icf_calc_flag = False
                 self._icf_task = self.min_slack_task
 
@@ -163,6 +163,8 @@ class RM_SS_mono_e10(Scheduler):
                 t = Timer(self.sim, self._timer, [], job.data["dvs"]["b"], cpu=self.processors[0])
                 t.start()
 
+            self._print('S', job)
+
         else:
             # Record idle time start
             self.idle_start = self.sim.now()
@@ -170,9 +172,6 @@ class RM_SS_mono_e10(Scheduler):
             self._lvlb = self._cpu.curlvl
             # Minimum cpu speed
             self._change_speed(None)
-
-        if job:
-            self._print('S', job)
 
         return job, cpu
 
