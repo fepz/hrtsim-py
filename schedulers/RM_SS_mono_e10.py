@@ -10,7 +10,6 @@ from simso.core import Scheduler, Timer
 from schedulers.MissedDeadlineException import MissedDeadlineException
 from slack.SlackUtils import reduce_slacks, multiple_slack_calc, get_minimum_slack
 from utils.rts import calculate_k, rta
-from math import isclose
 
 
 class RM_SS_mono_e10(Scheduler):
@@ -58,7 +57,7 @@ class RM_SS_mono_e10(Scheduler):
         for ptask in self.data["rts"]["ptasks"]:
             ptask["start_exec_time"] = 0
             ptask["ss"] = {'slack': 0, 'ttma': 0, 'di': 0}
-            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False}
+            ptask["dvs"] = {'a': ptask["C"], 'b': 0, 'bp': 0, 'brun': False, 'lvls': None}
             for ss_method in self.data["ss_methods"]:
                 ptask["ss"][ss_method] = {'a': ptask["C"], 'b': ptask["T"], 'c': 0}
 
@@ -89,14 +88,13 @@ class RM_SS_mono_e10(Scheduler):
         tc = self.sim.now() / self.sim.cycles_per_ms
         # Verify deadline.
         if job.exceeded_deadline:
-            #raise MissedDeadlineException(tc, job)
-            print("{:03.2f}\t{}\tDEADLINE MISS".format(tc, job.name))
+            raise MissedDeadlineException(tc, job)
         # Executed time in ms since last execution.
-        job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
+        job_runtime = (self.sim.now() - job.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
         # Decrement higher priority tasks' slack.
         reduce_slacks(self.task_list[:(job.task.identifier - 1)], job_runtime, tc)
         # Calculate this task new slack.
-        job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
+        job.data["ss"]["slack"], job.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
         # Find the system minimum slack and the time at which it occurs.
         self.min_slack, self.min_slack_t, min_slack_task = get_minimum_slack(self.task_list)
         # Compute energy consumption.
@@ -116,7 +114,7 @@ class RM_SS_mono_e10(Scheduler):
         job = cpu.running
 
         if len(self.ready_list) > 0:
-            if cpu.running:
+            if job:
                 # Current job executed time in ms.
                 job_runtime = (self.sim.now() - cpu.running.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
                 # Check if the B part has ended
@@ -149,11 +147,10 @@ class RM_SS_mono_e10(Scheduler):
             # Select the ready job with the highest priority (lowest period).
             job = min(self.ready_list, key=lambda x: x.period)
             # Update the execution start time.
-            job.task.data["ss"]["start_exec_time"] = self.sim.now()
+            job.data["ss"]["start_exec_time"] = self.sim.now()
 
             # New ICF?
-            if self._icf_calc_flag: # or isclose(tc, self._icf_t, rel_tol=0.0005):
-                prev_icf_t = self._icf_t
+            if self._icf_calc_flag:
                 self._update_speed(tc)
                 print("new icf {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name))
                 self._icf_calc_flag = False
@@ -163,7 +160,7 @@ class RM_SS_mono_e10(Scheduler):
             if job != cpu.running and job.computation_time == 0:
                 self._preempt = False
                 self._change_speed(job)
-                t = Timer(self.sim, self._timer, [], job.task.data["dvs"]["b"], cpu=self.processors[0])
+                t = Timer(self.sim, self._timer, [], job.data["dvs"]["b"], cpu=self.processors[0])
                 t.start()
 
         else:
@@ -206,12 +203,13 @@ class RM_SS_mono_e10(Scheduler):
         self._icf_t = self.min_slack_t
 
         # Update the non-blocking execution part of each task
-        for ptask in self.data["rts"]["ptasks"]:
-            ptask["dvs"]["b"] = ptask["C"] * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
+        for ptask in self.task_list[:(self.min_slack_task.identifier)]:
+            ptask.data["dvs"]["b"] = ptask.data["C"] * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
+            ptask.data["dvs"]["lvls"] = self.lvl_tup
 
     def _change_speed(self, job):
         if job is not None:
-            self._cpu.set_lvl(self.lvl_tup[0][6])
+            self._cpu.set_lvl(job.data["dvs"]["lvls"][0][6])
         else:
             self._cpu.set_lvl(0)
 
