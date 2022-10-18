@@ -40,7 +40,7 @@ class Cpu:
                 lvl_u = lvl
                 lvl_d = self.lvls[i - 1]
                 break
-        return (lvl_u, lvl_d)
+        return lvl_u, lvl_d
 
     def get_lvl(self, lvl):
         return self._cpuinfo["lvls"][lvl]
