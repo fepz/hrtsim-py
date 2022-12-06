@@ -9,10 +9,10 @@ from functools import total_ordering
 
 @total_ordering
 class EventType(Enum):
-    TERMINATED = 1
-    ARRIVAL = 2
-    SCHEDULE = 3
-    END = 4
+    END = 1
+    TERMINATED = 2
+    ARRIVAL = 3
+    SCHEDULE = 4
 
     def __ge__(self, other):
         if self.__class__ is other.__class__:
@@ -52,10 +52,21 @@ def insert_event(event, list: dllist):
     list.insert(event, tmpnode)
 
 
+ready_list = []
+
+
+def scheduler():
+    job = None
+    if ready_list:
+        job = min(ready_list, key=lambda x: x["T"])
+    return job
+
+
 def simulation(rts, args):
     event_list = dllist()
 
     for task in rts["ptasks"]:
+        task["job"] = {"counter": 0, "runtime": task["C"]}
         insert_event((0, EventType.ARRIVAL, task), event_list)
 
     end_time = rts["ptasks"][-1]["T"] * args.instance_count
@@ -64,21 +75,36 @@ def simulation(rts, args):
     last_arrival_time = -1
 
     while event_list:
-        node = event_list.first
-        v = node.value
+        v = event_list.popleft()
         now = v[0]
+
         if v[1] == EventType.END:
-            print("end")
             break
+
         if v[1] == EventType.ARRIVAL:
-            print("{} arrival task {}".format(now, v[2]["nro"]))
             if now > last_arrival_time:
-                insert_event((now, EventType.SCHEDULE, v[2]), event_list)
+                insert_event((now, EventType.SCHEDULE, None), event_list)
                 last_arrival_time = now
+            v[2]["job"]["counter"] += 1
+            v[2]["job"]["runtime"] = v[2]["C"]
             insert_event((now + v[2]["T"], EventType.ARRIVAL, v[2]), event_list)
+            ready_list.append(v[2])
+
+        if v[1] == EventType.TERMINATED:
+            ready_list.remove(v[2])
+            insert_event((now, EventType.SCHEDULE, None), event_list)
+
         if v[1] == EventType.SCHEDULE:
-            print("{} schedule".format(now))
-        event_list.remove(node)
+            next = event_list.first.value
+            job = scheduler()
+            if job:
+                print("{}:\t{}".format(now, job))
+                if next[0] >= now + job["job"]["runtime"]:
+                    insert_event((now + job["job"]["runtime"], EventType.TERMINATED, job), event_list)
+                else:
+                    job["job"]["runtime"] -= next[0] - now
+            else:
+                print("{}:\tempty".format(now))
 
     print(event_list)
 
