@@ -20,6 +20,30 @@ class EventType(Enum):
         return NotImplemented
 
 
+class Event:
+    def __init__(self, time, type, task):
+        self.time = time
+        self.type = type
+        self.task = task
+
+
+class Scheduler:
+    def __init__(self):
+        self.ready_list = []
+
+    def arrival(self, time, task):
+        self.ready_list.append(task)
+
+    def terminated(self, time, task):
+        self.ready_list.remove(task)
+
+    def schedule(self, time):
+        job = None
+        if self.ready_list:
+            job = min(self.ready_list, key=lambda x: x["T"])
+        return job
+
+
 def get_args():
     """ Command line arguments """
     parser = ArgumentParser(description="Simulate a RTS.")
@@ -40,69 +64,62 @@ def insert_event(event, list: dllist):
     tmpnode = None
 
     for node in list.iternodes():
-        if node.value[0] >= event[0]:
+        if node.value.time >= event.time:
             tmpnode = node
             break
 
-    while tmpnode and tmpnode.value[0] == event[0]:
-        if tmpnode.value[1] >= event[1]:
+    while tmpnode and tmpnode.value.time == event.time:
+        if tmpnode.value.type >= event.type:
             break
         tmpnode = tmpnode.next
 
     list.insert(event, tmpnode)
 
 
-ready_list = []
-
-
-def scheduler():
-    job = None
-    if ready_list:
-        job = min(ready_list, key=lambda x: x["T"])
-    return job
-
-
 def simulation(rts, args):
     event_list = dllist()
 
+    sched = Scheduler()
+
     for task in rts["ptasks"]:
         task["job"] = {"counter": 0, "runtime": task["C"]}
-        insert_event((0, EventType.ARRIVAL, task), event_list)
+        insert_event(Event(0, EventType.ARRIVAL, task), event_list)
 
     end_time = rts["ptasks"][-1]["T"] * args.instance_count
-    insert_event((end_time, EventType.END), event_list)
+    insert_event(Event(end_time, EventType.END, None), event_list)
 
     last_arrival_time = -1
 
     while event_list:
-        v = event_list.popleft()
-        now = v[0]
+        event = event_list.popleft()
+        now = event.time
 
-        if v[1] == EventType.END:
+        if event.type == EventType.END:
             break
 
-        if v[1] == EventType.ARRIVAL:
+        if event.type == EventType.ARRIVAL:
             if now > last_arrival_time:
-                insert_event((now, EventType.SCHEDULE, None), event_list)
-                last_arrival_time = now
-            v[2]["job"]["counter"] += 1
-            v[2]["job"]["runtime"] = v[2]["C"]
-            insert_event((now + v[2]["T"], EventType.ARRIVAL, v[2]), event_list)
-            ready_list.append(v[2])
+                if not event_list.first.value.type == EventType.SCHEDULE:
+                    insert_event(Event(now, EventType.SCHEDULE, None), event_list)
+                    last_arrival_time = now
+            event.task["job"]["counter"] += 1
+            event.task["job"]["runtime"] = event.task["C"]
+            insert_event(Event(now + event.task["T"], EventType.ARRIVAL, event.task), event_list)
+            sched.arrival(now, event.task)
 
-        if v[1] == EventType.TERMINATED:
-            ready_list.remove(v[2])
-            insert_event((now, EventType.SCHEDULE, None), event_list)
+        if event.type == EventType.TERMINATED:
+            sched.terminated(now, event.task)
+            insert_event(Event(now, EventType.SCHEDULE, None), event_list)
 
-        if v[1] == EventType.SCHEDULE:
+        if event.type == EventType.SCHEDULE:
             next = event_list.first.value
-            job = scheduler()
+            job = sched.schedule(now)
             if job:
                 print("{}:\t{}".format(now, job))
-                if next[0] >= now + job["job"]["runtime"]:
-                    insert_event((now + job["job"]["runtime"], EventType.TERMINATED, job), event_list)
+                if next.time >= now + job["job"]["runtime"]:
+                    insert_event(Event(now + job["job"]["runtime"], EventType.TERMINATED, job), event_list)
                 else:
-                    job["job"]["runtime"] -= next[0] - now
+                    job["job"]["runtime"] -= next.time - now
             else:
                 print("{}:\tempty".format(now))
 
