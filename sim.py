@@ -27,7 +27,7 @@ class Event:
         self.task = task
 
 
-class Scheduler:
+class EDF_mono:
     def __init__(self):
         self.ready_list = []
 
@@ -40,8 +40,81 @@ class Scheduler:
     def schedule(self, time):
         job = None
         if self.ready_list:
-            job = min(self.ready_list, key=lambda x: x["T"])
+            job = min(self.ready_list, key=lambda x: x.t)
         return job
+
+
+class RM_mono:
+    def __init__(self):
+        self.ready_list = []
+
+    def arrival(self, time, task):
+        self.ready_list.append(task)
+
+    def terminated(self, time, task):
+        self.ready_list.remove(task)
+
+    def schedule(self, time):
+        job = None
+        if self.ready_list:
+            job = min(self.ready_list, key=lambda x: x.t)
+        return job
+
+
+class Job:
+    def __init__(self, task):
+        self._task = task
+        self._counter = 0
+        self._runtime = task.c
+
+    @property
+    def task(self):
+        return self._task
+
+    @property
+    def runtime(self):
+        return self._runtime
+
+    @runtime.setter
+    def runtime(self, runtime):
+        self._runtime = runtime
+
+
+class Task:
+    def __init__(self, data):
+        self._id = data["nro"]
+        self._c = data["C"]
+        self._t = data["T"]
+        self._d = data["D"]
+        self._job = None
+        self._job_counter = 0
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def c(self):
+        return self._c
+
+    @property
+    def t(self):
+        return self._t
+
+    @property
+    def d(self):
+        return self._d
+
+    @property
+    def job(self):
+        return self._job
+
+    def new_job(self):
+        self._job = Job(self)
+        self._job_counter += 1
+
+    def __str__(self):
+        return "Task {}".format(self._id)
 
 
 def get_args():
@@ -79,13 +152,12 @@ def insert_event(event, list: dllist):
 def simulation(rts, args):
     event_list = dllist()
 
-    sched = Scheduler()
+    scheduler = schedulers[args.scheduler]()
 
-    for task in rts["ptasks"]:
-        task["job"] = {"counter": 0, "runtime": task["C"]}
+    for task in rts:
         insert_event(Event(0, EventType.ARRIVAL, task), event_list)
 
-    end_time = rts["ptasks"][-1]["T"] * args.instance_count
+    end_time = rts[-1].t * args.instance_count
     insert_event(Event(end_time, EventType.END, None), event_list)
 
     last_arrival_time = -1
@@ -102,28 +174,28 @@ def simulation(rts, args):
                 if not event_list.first.value.type == EventType.SCHEDULE:
                     insert_event(Event(now, EventType.SCHEDULE, None), event_list)
                     last_arrival_time = now
-            event.task["job"]["counter"] += 1
-            event.task["job"]["runtime"] = event.task["C"]
-            insert_event(Event(now + event.task["T"], EventType.ARRIVAL, event.task), event_list)
-            sched.arrival(now, event.task)
+            event.task.new_job()
+            insert_event(Event(now + event.task.t, EventType.ARRIVAL, event.task), event_list)
+            scheduler.arrival(now, event.task)
 
         if event.type == EventType.TERMINATED:
-            sched.terminated(now, event.task)
+            scheduler.terminated(now, event.task)
             insert_event(Event(now, EventType.SCHEDULE, None), event_list)
 
         if event.type == EventType.SCHEDULE:
-            next = event_list.first.value
-            job = sched.schedule(now)
-            if job:
-                print("{}:\t{}".format(now, job))
-                if next.time >= now + job["job"]["runtime"]:
-                    insert_event(Event(now + job["job"]["runtime"], EventType.TERMINATED, job), event_list)
+            next_event = event_list.first.value
+            task = scheduler.schedule(now)
+            if task:
+                print("{}:\t{}".format(now, task))
+                if next_event.time >= now + task.job.runtime:
+                    insert_event(Event(now + task.job.runtime, EventType.TERMINATED, task), event_list)
                 else:
-                    job["job"]["runtime"] -= next.time - now
+                    task.job.runtime -= next_event.time - now
             else:
                 print("{}:\tempty".format(now))
 
-    print(event_list)
+
+schedulers = {"RM_mono": RM_mono}
 
 
 def main():
@@ -131,9 +203,12 @@ def main():
     args = get_args()
 
     # Simulate the selected rts from the specified file.
-    for rts in get_from_file(args.file, mixrange(args.rts)):
+    for jrts in get_from_file(args.file, mixrange(args.rts)):
         if args.verbose:
-            print("Simulating RTS {0:}".format(rts["id"]), file=sys.stderr)
+            print("Simulating RTS {0:}".format(jrts["id"]), file=sys.stderr)
+        rts = []
+        for ptask in jrts["ptasks"]:
+            rts.append(Task(ptask))
         simulation(rts, args)
 
 
