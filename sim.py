@@ -40,7 +40,7 @@ class EDF_mono:
     def schedule(self, time):
         job = None
         if self.ready_list:
-            job = min(self.ready_list, key=lambda x: x.t)
+            job = min(self.ready_list, key=lambda x: x.job.absolute_deadline)
         return job
 
 
@@ -62,10 +62,19 @@ class RM_mono:
 
 
 class Job:
-    def __init__(self, task):
+    def __init__(self, task, t):
         self._task = task
         self._counter = 0
         self._runtime = task.c
+        self._instantiation_time = t
+
+    @property
+    def instantiation_time(self):
+        return self._instantiation_time
+
+    @property
+    def absolute_deadline(self):
+        return self._instantiation_time + self._task.d
 
     @property
     def task(self):
@@ -78,6 +87,9 @@ class Job:
     @runtime.setter
     def runtime(self, runtime):
         self._runtime = runtime
+
+    def remaining_runtime(self):
+        return self.task.c - self.runtime
 
 
 class Task:
@@ -109,8 +121,8 @@ class Task:
     def job(self):
         return self._job
 
-    def new_job(self):
-        self._job = Job(self)
+    def new_job(self, t):
+        self._job = Job(self, t)
         self._job_counter += 1
 
     def __str__(self):
@@ -161,6 +173,7 @@ def simulation(rts, args):
     insert_event(Event(end_time, EventType.END, None), event_list)
 
     last_arrival_time = -1
+    last_schedule_time = -1
 
     while event_list:
         event = event_list.popleft()
@@ -170,17 +183,17 @@ def simulation(rts, args):
             break
 
         if event.type == EventType.ARRIVAL:
-            if now > last_arrival_time:
-                if not event_list.first.value.type == EventType.SCHEDULE:
-                    insert_event(Event(now, EventType.SCHEDULE, None), event_list)
-                    last_arrival_time = now
-            event.task.new_job()
+            if now > last_schedule_time:
+                insert_event(Event(now, EventType.SCHEDULE, None), event_list)
+                last_schedule_time = now
+            event.task.new_job(now)
             insert_event(Event(now + event.task.t, EventType.ARRIVAL, event.task), event_list)
             scheduler.arrival(now, event.task)
 
         if event.type == EventType.TERMINATED:
             scheduler.terminated(now, event.task)
             insert_event(Event(now, EventType.SCHEDULE, None), event_list)
+            last_schedule_time = now
 
         if event.type == EventType.SCHEDULE:
             next_event = event_list.first.value
@@ -195,7 +208,8 @@ def simulation(rts, args):
                 print("{}:\tempty".format(now))
 
 
-schedulers = {"RM_mono": RM_mono}
+schedulers = {"RM_mono": RM_mono,
+              "EDF_mono": EDF_mono}
 
 
 def main():
