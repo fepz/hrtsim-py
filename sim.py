@@ -27,6 +27,23 @@ class Event:
         self.task = task
 
 
+class LLF_mono:
+    def __init__(self):
+        self.ready_list = []
+
+    def arrival(self, time, task):
+        self.ready_list.append(task)
+
+    def terminated(self, time, task):
+        self.ready_list.remove(task)
+
+    def schedule(self, time):
+        job = None
+        if self.ready_list:
+            job = min(self.ready_list, key=lambda x: x.job.current_laxity(time))
+        return job
+
+
 class EDF_mono:
     def __init__(self):
         self.ready_list = []
@@ -91,6 +108,10 @@ class Job:
     def remaining_runtime(self):
         return self.task.c - self.runtime
 
+    def current_laxity(self, t):
+        return self.absolute_deadline - (t + self.task.c)
+
+
 
 class Task:
     def __init__(self, data):
@@ -116,6 +137,10 @@ class Task:
     @property
     def d(self):
         return self._d
+
+    @property
+    def laxity(self):
+        return self._d - self._c
 
     @property
     def job(self):
@@ -209,7 +234,8 @@ def simulation(rts, args):
 
 
 schedulers = {"RM_mono": RM_mono,
-              "EDF_mono": EDF_mono}
+              "EDF_mono": EDF_mono,
+              "LLF_mono": LLF_mono}
 
 
 def main():
