@@ -29,8 +29,23 @@ class Event:
         self.task = task
 
 
-class LLF_mono:
-    def __init__(self):
+class Scheduler:
+    def __init__(self, configuration):
+        self._configuration = configuration
+
+    def arrival(self, time, task):
+        pass
+
+    def terminated(self, time, task):
+        pass
+
+    def schedule(self, time):
+        pass
+
+
+class LLF_mono(Scheduler):
+    def __init__(self, configuration):
+        super().__init__(configuration)
         self.ready_list = []
 
     def arrival(self, time, task):
@@ -46,8 +61,9 @@ class LLF_mono:
         return job
 
 
-class EDF_mono:
-    def __init__(self):
+class EDF_mono(Scheduler):
+    def __init__(self, configuration):
+        super().__init__(configuration)
         self.ready_list = []
 
     def arrival(self, time, task):
@@ -63,8 +79,27 @@ class EDF_mono:
         return job
 
 
-class RM_mono:
-    def __init__(self):
+class RM_mono(Scheduler):
+    def __init__(self, configuration):
+        super().__init__(configuration)
+        self.ready_list = []
+
+    def arrival(self, time, task):
+        self.ready_list.append(task)
+
+    def terminated(self, time, task):
+        self.ready_list.remove(task)
+
+    def schedule(self, time):
+        job = None
+        if self.ready_list:
+            job = min(self.ready_list, key=lambda x: x.t)
+        return job
+
+
+class RM_SS_mono(Scheduler):
+    def __init__(self, configuration):
+        super().__init__(configuration)
         self.ready_list = []
 
     def arrival(self, time, task):
