@@ -107,6 +107,9 @@ class RM_SS_mono(Scheduler):
 
     def terminated(self, time, task):
         self.ready_list.remove(task)
+        # decrement higher priority tasks slack
+        reduce_slacks(self._configuration["tasks"][:(task.id - 1)], task.job.runtime, time)
+        print(multiple_slack_calc(time, task, self._configuration["tasks"], self._configuration["ss_methods"]))
 
     def schedule(self, time):
         job = None
@@ -255,6 +258,41 @@ class Task:
 
     def __str__(self):
         return "Task {}".format(self._id)
+
+
+def reduce_slacks(tasks, amount, t):
+    from math import isclose, fabs
+    for task in tasks:
+        task.slack -= amount
+        if isclose(task.slack, 0, abs_tol=1e-5):
+            task.slack = 0
+        #if (fabs(task.data["ss"]["slack"] < 0.00005)):
+        #    task.data["ss"]["slack"] = 0
+        if task.slack < 0:
+            #raise NegativeSlackException(t, task, "Scheduler")
+            print("negative slack")
+
+
+def multiple_slack_calc(tc, task, tasks, slack_methods: list) -> dict:
+    # calculate slack with each method in slack_methods
+    slack_results = [(ss_method.__str__(), ss_method.calculate_slack(task, tasks, tc)) for ss_method in slack_methods]
+
+    # check for negative slacks
+    for method, result in slack_results:
+        if result["slack"] < 0:
+            #raise NegativeSlackException(tc, method, task.job.name if task.job else task.name)
+            print("negative slack")
+
+    # verify that all the methods produces the same results
+    ss = slack_results[0][1]["slack"]
+    ttma = slack_results[0][1]["ttma"]
+    for method, result in slack_results:
+        if result["slack"] != ss or (result["ttma"] > 0 and result["ttma"] != ttma):
+            #raise DifferentSlackException(tc, task.job.name if task.job else task.name, method, slack_results)
+            print("different slack")
+
+    # return slack and ttma
+    return {"slack": ss, "ttma": ttma, "ss_results": slack_results}
 
 
 def calculate_k(rts: list, vf=1.0) -> None:
@@ -464,13 +502,18 @@ def insert_event(event, list: dllist):
 def simulation(rts, args):
     event_list = dllist()
 
-    scheduler = schedulers[args.scheduler]()
+    ss_methods = []
+    if args.ss_methods:
+        for ss_method_name in args.ss_methods:
+            ss_methods.append(slack_methods[ss_method_name]())
 
     for task in rts:
         insert_event(Event(0, EventType.ARRIVAL, task), event_list)
 
     end_time = rts[-1].t * args.instance_count
     insert_event(Event(end_time, EventType.END, None), event_list)
+
+    scheduler = schedulers[args.scheduler]({"tasks": rts, "ss_methods": ss_methods})
 
     last_schedule_time = -1
 
@@ -508,6 +551,7 @@ def simulation(rts, args):
 
 
 schedulers = {"RM_mono": RM_mono,
+              "RM_SS_mono": RM_SS_mono,
               "EDF_mono": EDF_mono,
               "LLF_mono": LLF_mono}
 
