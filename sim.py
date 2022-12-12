@@ -80,7 +80,7 @@ class EDF_mono(Scheduler):
 
 
 class RM_mono(Scheduler):
-    def __init__(self, configuration):
+    def __init__(self, configuration, params):
         super().__init__(configuration)
         self.ready_list = []
 
@@ -109,7 +109,10 @@ class RM_SS_mono(Scheduler):
         self.ready_list.remove(task)
         # decrement higher priority tasks slack
         reduce_slacks(self._configuration["tasks"][:(task.id - 1)], task.job.runtime, time)
-        print(multiple_slack_calc(time, task, self._configuration["tasks"], self._configuration["ss_methods"]))
+        # calculate slack
+        result = multiple_slack_calc(time, task, self._configuration["tasks"], self._configuration["ss_methods"])
+        task.slack = result["slack"]
+        task.ttma = result["ttma"]
 
     def schedule(self, time):
         job = None
@@ -541,7 +544,7 @@ def simulation(rts, args):
             next_event = event_list.first.value
             task = scheduler.schedule(now)
             if task:
-                print("{}:\t{}".format(now, task))
+                print("{}:\t{}\t{}".format(now, task, "\t".join([str(task.slack) for task in rts])))
                 if next_event.time >= now + task.job.runtime:
                     insert_event(Event(now + task.job.runtime, EventType.TERMINATED, task), event_list)
                 else:
@@ -578,6 +581,7 @@ def main():
             result = slack.calculate_slack(task, rts, 0)
             task.slack = result["slack"]
             task.ttma = result["ttma"]
+
         simulation(rts, args)
         print(slack.telemetry())
 
