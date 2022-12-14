@@ -3,7 +3,7 @@ from utils.files import get_from_file
 from utils.rts import mixrange
 from utils.cpu import Cpu
 from enum import Enum
-from llist import dllist, dllistnode
+from llist import dllist
 from math import ceil
 from functools import total_ordering
 import json
@@ -421,23 +421,18 @@ def rta(rts: list, vf=1.0) -> bool:
 
 class SlackMethod:
 
-    def cc_counter(fn):
-        def wrapper(*args, **kwargs):
-            wrapper.counter += 1
-            return fn(*args, **kwargs)
-        wrapper.counter = 0
-        wrapper.__name__ = fn.__name__
-        return wrapper
+    def __init__(self):
+        self._ceil_counter = 0
+        self._floor_counter = 0
 
-    @cc_counter
     def _ceil(self, v):
+        self._ceil_counter += 1
         return math.ceil(v)
 
-    @cc_counter
     def _floor(self, v):
+        self._floor_counter += 1
         return math.floor(v)
 
-    @cc_counter
     def _slack_calc(self, task_list, tc, t, wc):
         w = 0
         for task in task_list:
@@ -453,18 +448,13 @@ class SlackMethod:
         pass
 
     def telemetry(self):
-        return {"ceils": self._ceil.counter, "floors": self._floor.counter}
+        return {"ceils": self._ceil_counter, "floors": self._floor_counter}
 
 
 class Fixed2Slack(SlackMethod):
 
     def __init__(self):
         super().__init__()
-
-    def init(self):
-        self._ceil.counter = 0
-        self._floor.counter = 0
-        self._slack_calc.counter = 0
 
     def calculate_slack(self, task, task_list, time):
         # theorems and corollaries applied
@@ -475,8 +465,8 @@ class Fixed2Slack(SlackMethod):
 
         # if it is the max priority task, the slack is trivial
         if task.id == 1:
-            return {"slack": task.di - time - task.r, "ttma": task.di, "cc": self._ceil.counter,
-                    "theorems": theorems, "interval_length": 0, "slack_calcs": self._slack_calc.counter}
+            return {"slack": task.di - time - task.r, "ttma": task.di, "cc": self._ceil_counter,
+                    "theorems": theorems, "interval_length": 0}
 
         # sort the task list by period (RM)
         tl = sorted(task_list, key=lambda x: x.t)
@@ -490,8 +480,8 @@ class Fixed2Slack(SlackMethod):
         # corollary 2 (theorem 5)
         if (htask.di + htask.c >= task.di) and (task.di >= htask.ttma):
             theorems.append(5)
-            return {"slack": htask.slack - task.c, "ttma": htask.ttma, "cc": self._ceil.counter,
-                    "theorems": theorems, "interval_length": 0, "slack_calcs": self._slack_calc.counter}
+            return {"slack": htask.slack - task.c, "ttma": htask.ttma, "cc": self._ceil_counter,
+                    "theorems": theorems, "interval_length": 0}
 
         # theorem 3
         intervalo = xi + (task.d - task.r) + task.c
@@ -542,8 +532,8 @@ class Fixed2Slack(SlackMethod):
                 # next arrival
                 ii += htask.t
 
-        return {"slack": kmax, "ttma": tmax, "cc": self._ceil.counter + self._floor.counter, "theorems": theorems,
-                "interval_length": task.di - intervalo, "slack_calcs": self._slack_calc.counter}
+        return {"slack": kmax, "ttma": tmax, "cc": self._ceil_counter + self._floor_counter, "theorems": theorems,
+                "interval_length": task.di - intervalo}
 
 
 def get_args():
@@ -629,6 +619,9 @@ def simulation(rts, args):
                 if next_event.time >= now + job.runtime_left():
                     insert_event(Event(now + job.runtime_left(), EventType.TERMINATED, job), event_list)
             print("{:5}\t{}\t{}".format(now, str(job if job else "E").ljust(10), "\t".join([str(int(task.slack)) for task in rts])))
+
+    for ss_method in ss_methods:
+        print("{}: {}".format(ss_method.__class__.__name__, ss_method.telemetry()))
 
 
 schedulers = {"RM_mono": RM_mono,
