@@ -1,10 +1,12 @@
 from argparse import ArgumentParser, FileType
 from utils.files import get_from_file
 from utils.rts import mixrange
+from utils.cpu import Cpu
 from enum import Enum
 from llist import dllist, dllistnode
 from math import ceil
 from functools import total_ordering
+import json
 import math
 import sys
 
@@ -140,6 +142,7 @@ class RM_mono(Scheduler):
             self.current_job = None
             self.idle = True
         return job
+
 
 class RM_SS_mono(Scheduler):
     def __init__(self, configuration):
@@ -589,7 +592,11 @@ def simulation(rts, args):
     end_time = rts[-1].t * args.instance_count
     insert_event(Event(end_time, EventType.END, None), event_list)
 
-    scheduler = schedulers[args.scheduler]({"tasks": rts, "ss_methods": ss_methods})
+    cpu = None
+    if args.cpu:
+        cpu = Cpu(json.load(args.cpu))
+
+    scheduler = schedulers[args.scheduler]({"tasks": rts, "ss_methods": ss_methods, "cpu": cpu})
 
     last_schedule_time = -1
 
@@ -654,7 +661,6 @@ def main():
             task.ttma = result["ttma"]
 
         simulation(rts, args)
-        print(slack.telemetry())
 
 
 if __name__ == '__main__':
