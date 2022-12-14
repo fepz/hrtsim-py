@@ -633,6 +633,22 @@ schedulers = {"RM_mono": RM_mono,
 slack_methods = {"Fixed2": Fixed2Slack}
 
 
+def get_args():
+    """ Command line arguments """
+    parser = ArgumentParser(description="Simulate a RTS.")
+    parser.add_argument("file", nargs='?', type=FileType('r'), default=sys.stdin, help="File with RTS.")
+    parser.add_argument("--rts", type=str, help="Which RTS simulate.", default="1")
+    parser.add_argument("--scheduler", type=str, help="Scheduling algorithm")
+    parser.add_argument("--instance-count", type=int, default=5, help="Stop the simulation after the specified number of instances of the lowest priority task.")
+    parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
+    parser.add_argument("--only-schedulable", action="store_true", default=False, help="Simulate only schedulable systems.")
+    parser.add_argument("--gantt", action="store_true", default=False, help="Show scheduling gantt.")
+    parser.add_argument("--stop-on-error", default=False, action="store_true", help="Stop and exit the simulation if an error is detected.")
+    parser.add_argument("--verbose", default=False, action="store_true", help="Show progress information on stderr.")
+    parser.add_argument("--cpu", type=FileType('r'), help="CPU model.")
+    return parser.parse_args()
+
+
 def main():
     # Retrieve command line arguments.
     args = get_args()
