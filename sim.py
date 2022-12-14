@@ -163,7 +163,7 @@ class RM_SS_mono(Scheduler):
         # decrement higher priority tasks slack
         reduce_slacks(self._configuration["tasks"][:(job.task.id - 1)], slice, time)
         # calculate slack
-        result = multiple_slack_calc(time, job.task, self._configuration["tasks"], self._configuration["ss_methods"])
+        result = slack_calc(time, job.task, self._configuration["tasks"], self._configuration["ss_methods"])
         job.task.slack = result["slack"]
         job.task.ttma = result["ttma"]
 
@@ -352,7 +352,7 @@ def reduce_slacks(tasks, amount, t):
             print("negative slack")
 
 
-def multiple_slack_calc(tc, task, tasks, slack_methods: list) -> dict:
+def slack_calc(tc, task, tasks, slack_methods: list) -> dict:
     # calculate slack with each method in slack_methods
     slack_results = [(ss_method.__str__(), ss_method.calculate_slack(task, tasks, tc)) for ss_method in slack_methods]
 
