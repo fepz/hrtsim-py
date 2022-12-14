@@ -36,7 +36,7 @@ class Scheduler:
     def arrival(self, time, task):
         pass
 
-    def terminated(self, time, task):
+    def terminated(self, time, job):
         pass
 
     def schedule(self, time):
@@ -47,17 +47,32 @@ class LLF_mono(Scheduler):
     def __init__(self, configuration):
         super().__init__(configuration)
         self.ready_list = []
+        self.current_job = None
+        self.last_schedule_time = 0
+        self.idle = False
 
     def arrival(self, time, task):
-        self.ready_list.append(task)
+        self.ready_list.append(task.new_job(time))
 
-    def terminated(self, time, task):
-        self.ready_list.remove(task)
+    def terminated(self, time, job):
+        slice = time - self.last_schedule_time
+        job.runtime += slice
+        self.ready_list.remove(job)
+        self.current_job = None
 
     def schedule(self, time):
         job = None
+        slice = time - self.last_schedule_time
+        self.last_schedule_time = time
+        if self.current_job:
+            self.current_job.runtime += slice
         if self.ready_list:
-            job = min(self.ready_list, key=lambda x: x.job.current_laxity(time))
+            job = min(self.ready_list, key=lambda x: x.current_laxity(time))
+            self.current_job = job
+            self.idle = False
+        else:
+            self.current_job = None
+            self.idle = True
         return job
 
 
@@ -65,37 +80,66 @@ class EDF_mono(Scheduler):
     def __init__(self, configuration):
         super().__init__(configuration)
         self.ready_list = []
+        self.current_job = None
+        self.last_schedule_time = 0
+        self.idle = False
 
     def arrival(self, time, task):
-        self.ready_list.append(task)
+        self.ready_list.append(task.new_job(time))
 
-    def terminated(self, time, task):
-        self.ready_list.remove(task)
+    def terminated(self, time, job):
+        slice = time - self.last_schedule_time
+        job.runtime += slice
+        self.ready_list.remove(job)
+        self.current_job = None
 
     def schedule(self, time):
         job = None
+        slice = time - self.last_schedule_time
+        self.last_schedule_time = time
+        if self.current_job:
+            self.current_job.runtime += slice
         if self.ready_list:
-            job = min(self.ready_list, key=lambda x: x.job.absolute_deadline)
+            job = min(self.ready_list, key=lambda x: x.absolute_deadline)
+            self.current_job = job
+            self.idle = False
+        else:
+            self.current_job = None
+            self.idle = True
         return job
 
 
 class RM_mono(Scheduler):
-    def __init__(self, configuration, params):
+    def __init__(self, configuration):
         super().__init__(configuration)
         self.ready_list = []
+        self.current_job = None
+        self.last_schedule_time = 0
+        self.idle = False
 
     def arrival(self, time, task):
-        self.ready_list.append(task)
+        self.ready_list.append(task.new_job(time))
 
-    def terminated(self, time, task):
-        self.ready_list.remove(task)
+    def terminated(self, time, job):
+        slice = time - self.last_schedule_time
+        job.runtime += slice
+        self.ready_list.remove(job)
+        self.current_job = None
 
     def schedule(self, time):
         job = None
+        slice = time - self.last_schedule_time
+        self.last_schedule_time = time
+        if self.current_job:
+            self.current_job.runtime += slice
         if self.ready_list:
-            job = min(self.ready_list, key=lambda x: x.t)
+            job = min(self.ready_list, key=lambda x: x.task.t)
+            self.current_job = job
+            self.idle = False
+        else:
+            self.current_job = None
+            self.idle = True
         return job
-
 
 class RM_SS_mono(Scheduler):
     def __init__(self, configuration):
