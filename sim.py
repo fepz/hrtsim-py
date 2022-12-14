@@ -12,8 +12,8 @@ import sys
 @total_ordering
 class EventType(Enum):
     END = 1
-    TERMINATED = 2
-    ARRIVAL = 3
+    ARRIVAL = 2
+    TERMINATED = 3
     SCHEDULE = 4
 
     def __ge__(self, other):
@@ -23,10 +23,10 @@ class EventType(Enum):
 
 
 class Event:
-    def __init__(self, time, type, task):
+    def __init__(self, time, type, value):
         self.time = time
         self.type = type
-        self.task = task
+        self.value = value
 
 
 class Scheduler:
@@ -101,31 +101,51 @@ class RM_SS_mono(Scheduler):
     def __init__(self, configuration):
         super().__init__(configuration)
         self.ready_list = []
+        self.current_job = None
+        self.last_schedule_time = 0
+        self.idle = False
 
     def arrival(self, time, task):
-        self.ready_list.append(task)
+        self.ready_list.append(task.new_job(time))
 
-    def terminated(self, time, task):
-        self.ready_list.remove(task)
+    def terminated(self, time, job):
+        slice = time - self.last_schedule_time
+        job.runtime += slice
+        self.ready_list.remove(job)
+        self.current_job = None
         # decrement higher priority tasks slack
-        reduce_slacks(self._configuration["tasks"][:(task.id - 1)], task.job.runtime, time)
+        reduce_slacks(self._configuration["tasks"][:(job.task.id - 1)], slice, time)
         # calculate slack
-        result = multiple_slack_calc(time, task, self._configuration["tasks"], self._configuration["ss_methods"])
-        task.slack = result["slack"]
-        task.ttma = result["ttma"]
+        result = multiple_slack_calc(time, job.task, self._configuration["tasks"], self._configuration["ss_methods"])
+        job.task.slack = result["slack"]
+        job.task.ttma = result["ttma"]
 
     def schedule(self, time):
         job = None
+        slice = time - self.last_schedule_time
+        self.last_schedule_time = time
+        if self.current_job:
+            self.current_job.runtime += slice
+            reduce_slacks(self._configuration["tasks"][:(self.current_job.task.id - 1)], slice, time)
+        else:
+            if self.idle:
+                reduce_slacks(self._configuration["tasks"], slice, time)
         if self.ready_list:
-            job = min(self.ready_list, key=lambda x: x.t)
+            job = min(self.ready_list, key=lambda x: x.task.t)
+            self.current_job = job
+            self.idle = False
+        else:
+            self.current_job = None
+            self.idle = True
         return job
 
 
 class Job:
-    def __init__(self, task, t):
+    def __init__(self, task, t, id):
         self._task = task
+        self._id = id
         self._counter = 0
-        self._runtime = task.c
+        self._runtime = 0
         self._instantiation_time = t
 
     @property
@@ -148,11 +168,14 @@ class Job:
     def runtime(self, runtime):
         self._runtime = runtime
 
-    def remaining_runtime(self):
+    def runtime_left(self):
         return self.task.c - self.runtime
 
     def current_laxity(self, t):
         return self.absolute_deadline - (t + self.task.c)
+
+    def __str__(self):
+        return "{}_{}".format(self.task, self._id)
 
 
 class Task:
@@ -169,6 +192,7 @@ class Task:
         self._di = 0
         self._ttma = 0
         self._job = None
+        self._last_job = None
         self._job_counter = 0
 
     @property
@@ -256,11 +280,16 @@ class Task:
         return self._job
 
     def new_job(self, t):
-        self._job = Job(self, t)
         self._job_counter += 1
+        self._job = Job(self, t, self._job_counter)
+        return self._job
+
+    def end_job(self):
+        self._last_job = self._job
+        self._job = None
 
     def __str__(self):
-        return "Task {}".format(self._id)
+        return "T_{}".format(self._id)
 
 
 def reduce_slacks(tasks, amount, t):
@@ -433,7 +462,7 @@ class Fixed2Slack(SlackMethod):
             a = self._floor(time / task.d)
             wc += (a * task.c)
             if task.job and task.job.runtime > 0:
-                wc += task.c
+                wc += task.job.runtime
 
         # calculate slack in deadline
         k2, w = self._slack_calc(tl[:task.id], time, task.di, wc)
@@ -528,29 +557,27 @@ def simulation(rts, args):
             break
 
         if event.type == EventType.ARRIVAL:
+            task = event.value
             if now > last_schedule_time:
                 insert_event(Event(now, EventType.SCHEDULE, None), event_list)
                 last_schedule_time = now
-            event.task.new_job(now)
-            insert_event(Event(now + event.task.t, EventType.ARRIVAL, event.task), event_list)
-            scheduler.arrival(now, event.task)
+            insert_event(Event(now + task.t, EventType.ARRIVAL, task), event_list)
+            scheduler.arrival(now, task)
 
         if event.type == EventType.TERMINATED:
-            scheduler.terminated(now, event.task)
-            insert_event(Event(now, EventType.SCHEDULE, None), event_list)
-            last_schedule_time = now
+            job = event.value
+            scheduler.terminated(now, job)
+            if now > last_schedule_time:
+                insert_event(Event(now, EventType.SCHEDULE, None), event_list)
+                last_schedule_time = now
 
         if event.type == EventType.SCHEDULE:
             next_event = event_list.first.value
-            task = scheduler.schedule(now)
-            if task:
-                print("{}:\t{}\t{}".format(now, task, "\t".join([str(task.slack) for task in rts])))
-                if next_event.time >= now + task.job.runtime:
-                    insert_event(Event(now + task.job.runtime, EventType.TERMINATED, task), event_list)
-                else:
-                    task.job.runtime -= next_event.time - now
-            else:
-                print("{}:\tempty".format(now))
+            job = scheduler.schedule(now)
+            if job:
+                if next_event.time >= now + job.runtime_left():
+                    insert_event(Event(now + job.runtime_left(), EventType.TERMINATED, job), event_list)
+            print("{:5}\t{}\t{}".format(now, str(job if job else "E").ljust(10), "\t".join([str(int(task.slack)) for task in rts])))
 
 
 schedulers = {"RM_mono": RM_mono,
