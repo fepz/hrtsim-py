@@ -1,5 +1,14 @@
 """
 DVS CPU model.
+
+0:	Frecuencia
+1:	Voltaje
+2:	ICC (ampers)
+3:	potencia	ampers * voltaje  [unidad jules]
+4:	potencia rel
+5:	frecuencia rel
+6:	normalizado
+
 """
 
 
