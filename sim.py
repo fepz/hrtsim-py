@@ -184,7 +184,12 @@ class RM_SS_mono(Scheduler):
         else:
             self.current_job = None
             self.idle = True
+            self._configuration["cpu"].set_lvl(0.0)
         return job
+
+    @property
+    def energy(self):
+        return self._energy
 
 
 class Job:
@@ -420,7 +425,6 @@ def rta(rts: list, vf=1.0) -> bool:
 
 
 class SlackMethod:
-
     def __init__(self):
         self._ceil_counter = 0
         self._floor_counter = 0
@@ -452,7 +456,6 @@ class SlackMethod:
 
 
 class Fixed2Slack(SlackMethod):
-
     def __init__(self):
         super().__init__()
 
@@ -536,92 +539,82 @@ class Fixed2Slack(SlackMethod):
                 "interval_length": task.di - intervalo}
 
 
-def get_args():
-    """ Command line arguments """
-    parser = ArgumentParser(description="Simulate a RTS.")
-    parser.add_argument("file", nargs='?', type=FileType('r'), default=sys.stdin, help="File with RTS.")
-    parser.add_argument("--rts", type=str, help="Which RTS simulate.", default="1")
-    parser.add_argument("--scheduler", type=str, help="Scheduling algorithm")
-    parser.add_argument("--instance-count", type=int, default=5, help="Stop the simulation after the specified number of instances of the lowest priority task.")
-    parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
-    parser.add_argument("--only-schedulable", action="store_true", default=False, help="Simulate only schedulable systems.")
-    parser.add_argument("--gantt", action="store_true", default=False, help="Show scheduling gantt.")
-    parser.add_argument("--stop-on-error", default=False, action="store_true", help="Stop and exit the simulation if an error is detected.")
-    parser.add_argument("--verbose", default=False, action="store_true", help="Show progress information on stderr.")
-    parser.add_argument("--cpu", type=FileType('r'), help="CPU model.")
-    return parser.parse_args()
+class Simulator:
+    def __init__(self, rts, args):
+        self._event_list = dllist()
+        self._rts = rts
 
+        self._ss_methods = []
+        if args.ss_methods:
+            for ss_method_name in args.ss_methods:
+                self._ss_methods.append(slack_methods[ss_method_name]())
 
-def insert_event(event, list: dllist):
-    tmpnode = None
+        for task in self._rts:
+            self.insert_event(Event(0, EventType.ARRIVAL, task), self._event_list)
 
-    for node in list.iternodes():
-        if node.value.time >= event.time:
-            tmpnode = node
-            break
+        end_time = rts[-1].t * args.instance_count
+        self.insert_event(Event(end_time, EventType.END, None), self._event_list)
 
-    while tmpnode and tmpnode.value.time == event.time:
-        if tmpnode.value.type >= event.type:
-            break
-        tmpnode = tmpnode.next
+        self._cpu = None
+        if args.cpu:
+            self._cpu = Cpu(json.load(args.cpu))
 
-    list.insert(event, tmpnode)
+        self._scheduler = schedulers[args.scheduler]({"sim": self, "tasks": rts, "ss_methods": self._ss_methods, "cpu": self._cpu})
+        self._last_schedule_time = -1
 
+    def insert_event(self, event, list: dllist):
+        tmpnode = None
 
-def simulation(rts, args):
-    event_list = dllist()
+        for node in self._event_list.iternodes():
+            if node.value.time >= event.time:
+                tmpnode = node
+                break
 
-    ss_methods = []
-    if args.ss_methods:
-        for ss_method_name in args.ss_methods:
-            ss_methods.append(slack_methods[ss_method_name]())
+        while tmpnode and tmpnode.value.time == event.time:
+            if tmpnode.value.type >= event.type:
+                break
+            tmpnode = tmpnode.next
 
-    for task in rts:
-        insert_event(Event(0, EventType.ARRIVAL, task), event_list)
+        self._event_list.insert(event, tmpnode)
 
-    end_time = rts[-1].t * args.instance_count
-    insert_event(Event(end_time, EventType.END, None), event_list)
+    def sim(self):
+        while self._event_list:
+            event = self._event_list.popleft()
+            now = event.time
 
-    cpu = None
-    if args.cpu:
-        cpu = Cpu(json.load(args.cpu))
+            if event.type == EventType.END:
+                break
 
-    scheduler = schedulers[args.scheduler]({"tasks": rts, "ss_methods": ss_methods, "cpu": cpu})
+            if event.type == EventType.ARRIVAL:
+                task = event.value
+                if now > self._last_schedule_time:
+                    self.insert_event(Event(now, EventType.SCHEDULE, None), self._event_list)
+                    self._last_schedule_time = now
+                self.insert_event(Event(now + task.t, EventType.ARRIVAL, task), self._event_list)
+                self._scheduler.arrival(now, task)
 
-    last_schedule_time = -1
+            if event.type == EventType.TERMINATED:
+                job = event.value
+                self._scheduler.terminated(now, job)
+                if now > self._last_schedule_time:
+                    self.insert_event(Event(now, EventType.SCHEDULE, None), self._event_list)
+                    self._last_schedule_time = now
 
-    while event_list:
-        event = event_list.popleft()
-        now = event.time
+            if event.type == EventType.SCHEDULE:
+                next_event = self._event_list.first.value
+                job = self._scheduler.schedule(now)
+                if job:
+                    if next_event.time >= now + job.runtime_left():
+                        self.insert_event(Event(now + job.runtime_left(), EventType.TERMINATED, job), self._event_list)
+                print("{:5}\t{}\t{}\t{:.3f}\t{:.5f}".format(now, str(job if job else "E").ljust(10),
+                                                "\t".join([str(int(task.slack)) for task in self._rts]),
+                                                self._cpu.curlvl[6], self._scheduler.energy))
 
-        if event.type == EventType.END:
-            break
+        for ss_method in self._ss_methods:
+            print("{}: {}".format(ss_method.__class__.__name__, ss_method.telemetry()))
 
-        if event.type == EventType.ARRIVAL:
-            task = event.value
-            if now > last_schedule_time:
-                insert_event(Event(now, EventType.SCHEDULE, None), event_list)
-                last_schedule_time = now
-            insert_event(Event(now + task.t, EventType.ARRIVAL, task), event_list)
-            scheduler.arrival(now, task)
-
-        if event.type == EventType.TERMINATED:
-            job = event.value
-            scheduler.terminated(now, job)
-            if now > last_schedule_time:
-                insert_event(Event(now, EventType.SCHEDULE, None), event_list)
-                last_schedule_time = now
-
-        if event.type == EventType.SCHEDULE:
-            next_event = event_list.first.value
-            job = scheduler.schedule(now)
-            if job:
-                if next_event.time >= now + job.runtime_left():
-                    insert_event(Event(now + job.runtime_left(), EventType.TERMINATED, job), event_list)
-            print("{:5}\t{}\t{}".format(now, str(job if job else "E").ljust(10), "\t".join([str(int(task.slack)) for task in rts])))
-
-    for ss_method in ss_methods:
-        print("{}: {}".format(ss_method.__class__.__name__, ss_method.telemetry()))
+    def next_arrival(self):
+        return self._event_list.first.value.time
 
 
 schedulers = {"RM_mono": RM_mono,
@@ -669,7 +662,8 @@ def main():
             task.slack = result["slack"]
             task.ttma = result["ttma"]
 
-        simulation(rts, args)
+        sim = Simulator(rts, args)
+        sim.sim()
 
 
 if __name__ == '__main__':
