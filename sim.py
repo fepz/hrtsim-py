@@ -184,6 +184,50 @@ class RM_SS_mono(Scheduler):
         else:
             self.current_job = None
             self.idle = True
+        return job
+
+
+class LPFPS(Scheduler):
+    def __init__(self, configuration):
+        super().__init__(configuration)
+        self.ready_list = []
+        self.current_job = None
+        self.last_schedule_time = 0
+        self.idle = False
+        self._energy = 0
+
+    def arrival(self, time, task):
+        self.ready_list.append(task.new_job(time))
+
+    def terminated(self, time, job):
+        slice = time - self.last_schedule_time
+        job.runtime += slice
+        self.ready_list.remove(job)
+        self.current_job = None
+        self._energy += slice * self._configuration["cpu"].curlvl[3]
+        self._configuration["cpu"].set_lvl(1.0)
+
+    def schedule(self, time):
+        job = None
+        slice = time - self.last_schedule_time
+        self.last_schedule_time = time
+        if self.current_job:
+            self.current_job.runtime += slice
+        if self.ready_list:
+            job = min(self.ready_list, key=lambda x: x.task.t)
+            if len(self.ready_list) == 1:
+                # Compute new speed ratio
+                ratio = job.runtime_left() / (self._configuration["sim"].next_arrival() - time)
+                if ratio <= 1.0:
+                    self._configuration["cpu"].set_lvl(1.0 * ratio)
+            else:
+                self._configuration["cpu"].set_lvl(1.0)
+
+            self.current_job = job
+            self.idle = False
+        else:
+            self.current_job = None
+            self.idle = True
             self._configuration["cpu"].set_lvl(0.0)
         return job
 
@@ -620,7 +664,8 @@ class Simulator:
 schedulers = {"RM_mono": RM_mono,
               "RM_SS_mono": RM_SS_mono,
               "EDF_mono": EDF_mono,
-              "LLF_mono": LLF_mono}
+              "LLF_mono": LLF_mono,
+              "LPFPS": LPFPS}
 
 
 slack_methods = {"Fixed2": Fixed2Slack}
