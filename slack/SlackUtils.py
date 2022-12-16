@@ -18,7 +18,7 @@ def reduce_slacks(tasks, amount, t):
     from math import isclose, fabs
     for task in tasks:
         task.data["ss"]["slack"] -= amount
-        if isclose(task.data["ss"]["slack"], 0, abs_tol=1e-9):
+        if isclose(task.data["ss"]["slack"], 0, abs_tol=1e-5):
             task.data["ss"]["slack"] = 0
         #if (fabs(task.data["ss"]["slack"] < 0.00005)):
         #    task.data["ss"]["slack"] = 0
