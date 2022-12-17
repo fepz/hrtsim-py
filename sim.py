@@ -31,6 +31,30 @@ class Event:
         self.value = value
 
 
+class Configuration:
+    def __init__(self, sim, scheduler, cpu, slack):
+        self._sim = sim
+        self._scheduler = scheduler
+        self._cpu = cpu
+        self._slack = slack
+
+    @property
+    def sim(self):
+        return self._sim
+
+    @property
+    def scheduler(self):
+        return self._scheduler
+
+    @property
+    def cpu(self):
+        return self._cpu
+
+    @property
+    def slack(self):
+        return self._slack
+
+
 class Scheduler:
     def __init__(self, configuration):
         self._configuration = configuration
@@ -236,6 +260,74 @@ class LPFPS(Scheduler):
         return self._energy
 
 
+class RM_SS_mono_e(Scheduler):
+    def __init__(self, configuration):
+        super().__init__(configuration)
+        self.ready_list = []
+        self.current_job = None
+        self.last_schedule_time = 0
+        self.idle = False
+        self._slacktask = None
+        self._taskintervalo = 0
+
+    def arrival(self, time, task):
+        self.ready_list.append(task.new_job(time))
+
+    def terminated(self, time, job):
+        slice = time - self.last_schedule_time
+        job.runtime += slice
+        self.ready_list.remove(job)
+        self.current_job = None
+        # decrement higher priority tasks slack
+        reduce_slacks(self._configuration["tasks"][:(job.task.id - 1)], slice, time)
+        # calculate slack
+        result = slack_calc(time, job.task, self._configuration["tasks"], self._configuration["ss_methods"])
+        job.task.slack = result["slack"]
+        job.task.ttma = result["ttma"]
+
+    def schedule(self, time):
+        job = None
+        slice = time - self.last_schedule_time  # how much the task will execute
+        self.last_schedule_time = time
+        if self.current_job:
+            self.current_job.runtime += slice
+            reduce_slacks(self._configuration["tasks"][:(self.current_job.task.id - 1)], slice, time)
+        else:
+            if self.idle:
+                reduce_slacks(self._configuration["tasks"], slice, time)
+        if self.ready_list:
+            next_stop = self._configuration["sim"].next_arrival()
+            cpu = self._configuration["cpu"]
+            job = min(self.ready_list, key=lambda x: x.task.t)
+            if slack_task != self._slacktask and slack_task.ttma != self._taskintervalo:
+                recuperacion_slack = True
+            if job.runtime == 0:
+                if next_stop > time + job.runtime_left and len(self.ready_list == 1):
+                    if job.absolute_deadline() < job.runtime:
+                        fideal = job.runtime_left / (next_stop - time) * cpu.curlvl[6]
+                        lvls = cpu.get_adjacent_lvls(fideal)
+                        job.b = job.runtime * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
+                    else:
+                        fideal = job.runtime_left / (next_stop - time) * cpu.curlvl[6]
+                        lvls = cpu.get_adjacent_lvls(fideal)
+                        slackb = job.runtime * (slack / (job.task.ttma - time - slack))
+                        job.b = job.runtime * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
+                else:
+                    if recuperacion_slack:
+                        recuperacion_slack = False
+                        fideal = job.runtime_left / (next_stop - time) * cpu.curlvl[6]
+                        lvls = cpu.get_adjacent_lvls(fideal)
+                        slacksob = (self.min_slack_t - time) * (1 - (fideal / self.lvl_tup[0][6]))
+                        slackb = job.runtime
+
+            self.current_job = job
+            self.idle = False
+        else:
+            self.current_job = None
+            self.idle = True
+        return job
+
+
 class Job:
     def __init__(self, task, t, id):
         self._task = task
@@ -243,6 +335,7 @@ class Job:
         self._counter = 0
         self._runtime = 0
         self._instantiation_time = t
+        self._b = task.c
 
     @property
     def instantiation_time(self):
@@ -263,6 +356,14 @@ class Job:
     @runtime.setter
     def runtime(self, runtime):
         self._runtime = runtime
+
+    @property
+    def b(self):
+        return self._b
+
+    @runtime.setter
+    def b(self, b):
+        self._b = b
 
     def runtime_left(self):
         return self.task.c - self.runtime
@@ -606,7 +707,7 @@ class Simulator:
         self._scheduler = schedulers[args.scheduler]({"sim": self, "tasks": rts, "ss_methods": self._ss_methods, "cpu": self._cpu})
         self._last_schedule_time = -1
 
-    def insert_event(self, event, list: dllist):
+    def insert_event(self, event):
         tmpnode = None
 
         for node in self._event_list.iternodes():
