@@ -493,13 +493,8 @@ class Task:
 class Rts:
     def __init__(self, tasks):
         self._ptasks = [Task(ptask) for ptask in tasks["ptasks"]]
-        self._schedulable = None
-        self.init()
-
-    def init(self):
         self._schedulable = rta(self.ptasks)
         calculate_k(self.ptasks)
-        pass
 
     @property
     def ptasks(self):
