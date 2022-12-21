@@ -260,10 +260,6 @@ class LPFPS(Scheduler):
             self._configuration["cpu"].set_lvl(0.0)
         return job
 
-    @property
-    def energy(self):
-        return self._energy
-
 
 class RM_SS_mono_e(Scheduler):
     def __init__(self, configuration):
@@ -494,6 +490,26 @@ class Task:
         return "T_{}".format(self._id)
 
 
+class Rts:
+    def __init__(self, tasks):
+        self._ptasks = [Task(ptask) for ptask in tasks["ptasks"]]
+        self._schedulable = None
+        self.init()
+
+    def init(self):
+        self._schedulable = rta(self.ptasks)
+        calculate_k(self.ptasks)
+        pass
+
+    @property
+    def ptasks(self):
+        return self._ptasks
+
+    @property
+    def schedulable(self):
+        return self._schedulable
+
+
 def reduce_slacks(tasks, amount, t):
     from math import isclose, fabs
     for task in tasks:
@@ -699,18 +715,19 @@ class Simulator:
             for ss_method_name in args.ss_methods:
                 self._ss_methods.append(slack_methods[ss_method_name]())
 
-        for task in self._rts:
-            self.insert_event(Event(0, EventType.ARRIVAL, task), self._event_list)
+        for task in self._rts.ptasks:
+            self.insert_event(Event(0, EventType.ARRIVAL, task))
 
-        end_time = rts[-1].t * args.instance_count
-        self.insert_event(Event(end_time, EventType.END, None), self._event_list)
+        end_time = self._rts.ptasks[-1].t * args.instance_count
+        self.insert_event(Event(end_time, EventType.END, None))
 
         self._cpu = None
         if args.cpu:
             self._cpu = Cpu(json.load(args.cpu))
 
-        self._scheduler = schedulers[args.scheduler]({"sim": self, "tasks": rts, "ss_methods": self._ss_methods, "cpu": self._cpu})
+        self._scheduler = schedulers[args.scheduler]({"sim": self, "tasks": self._rts.ptasks, "ss_methods": self._ss_methods, "cpu": self._cpu})
         self._last_schedule_time = -1
+
 
     def insert_event(self, event):
         tmpnode = None
@@ -738,16 +755,16 @@ class Simulator:
             if event.type == EventType.ARRIVAL:
                 task = event.value
                 if now > self._last_schedule_time:
-                    self.insert_event(Event(now, EventType.SCHEDULE, None), self._event_list)
+                    self.insert_event(Event(now, EventType.SCHEDULE, None))
                     self._last_schedule_time = now
-                self.insert_event(Event(now + task.t, EventType.ARRIVAL, task), self._event_list)
+                self.insert_event(Event(now + task.t, EventType.ARRIVAL, task))
                 self._scheduler.arrival(now, task)
 
             if event.type == EventType.TERMINATED:
                 job = event.value
                 self._scheduler.terminated(now, job)
                 if now > self._last_schedule_time:
-                    self.insert_event(Event(now, EventType.SCHEDULE, None), self._event_list)
+                    self.insert_event(Event(now, EventType.SCHEDULE, None))
                     self._last_schedule_time = now
 
             if event.type == EventType.SCHEDULE:
@@ -755,9 +772,9 @@ class Simulator:
                 job = self._scheduler.schedule(now)
                 if job:
                     if next_event.time >= now + job.runtime_left():
-                        self.insert_event(Event(now + job.runtime_left(), EventType.TERMINATED, job), self._event_list)
+                        self.insert_event(Event(now + job.runtime_left(), EventType.TERMINATED, job))
                 print("{:5}\t{}\t{}\t{:.3f}\t{:.5f}".format(now, str(job if job else "E").ljust(10),
-                                                "\t".join([str(int(task.slack)) for task in self._rts]),
+                                                "\t".join([str(int(task.slack)) for task in self._rts.ptasks]),
                                                 self._cpu.curlvl[6], self._scheduler.energy))
 
         for ss_method in self._ss_methods:
@@ -801,15 +818,11 @@ def main():
     for jrts in get_from_file(args.file, mixrange(args.rts)):
         if args.verbose:
             print("Simulating RTS {0:}".format(jrts["id"]), file=sys.stderr)
-        rts = []
-        for ptask in jrts["ptasks"]:
-            rts.append(Task(ptask))
-        rta(rts)
-        calculate_k(rts)
+        rts = Rts(jrts)
         slack = slack_methods["Fixed2"]()
         # Calculate slack at t=0
-        for task in rts:
-            result = slack.calculate_slack(task, rts, 0)
+        for task in rts.ptasks:
+            result = slack.calculate_slack(task, rts.ptasks, 0)
             task.slack = result["slack"]
             task.ttma = result["ttma"]
 
