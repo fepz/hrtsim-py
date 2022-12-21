@@ -58,6 +58,7 @@ class Configuration:
 class Scheduler:
     def __init__(self, configuration):
         self._configuration = configuration
+        self._energy = 0
 
     def arrival(self, time, task):
         pass
@@ -67,6 +68,10 @@ class Scheduler:
 
     def schedule(self, time):
         pass
+
+    @property
+    def energy(self):
+        return self._energy
 
 
 class LLF_mono(Scheduler):
