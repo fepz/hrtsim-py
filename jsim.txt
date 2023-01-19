@@ -1,0 +1,50 @@
+¿Es la primera vez que se ejecuta la instancia?
+Si:
+    ¿Finaliza antes que el arribo más proximo?
+    Si:
+        ¿El vencimiento de la tarea es anterior al arribo más próximo?
+        Si:
+            - Calcular frecuencia ideal.
+                > runtime / (nextstop - t) * cpu.levelcurrent            
+            - Obtener frecuencia de la CPU según la frecuencia ideal.
+            - Calcular parte b de la tarea.
+                > Tasks(i%, l%).RunTime * Processors(LevelCurrent, 0) / Processors(i1%, 0)
+        No:
+            - Calcular frecuencia ideal.
+                > Tasks(i%, l%).RunTime / (NextStop - t) * Processors(LevelCurrent, 0) 
+            - Obtener frecuencia de la CPU según la frecuencia ideal.
+            - Calcular slackb (?)
+                > Tasks(i%, l%).RunTime * Small(0) / (Tasks(Small(1), l%).SlackRMTemp - t - Small(0))
+            - Calcular parte b de la tarea.
+                > b = Tasks(i%, l%).RunTime * Processors(LevelCurrent, 0) / Processors(i1%, 0)
+    No:
+        ¿Recuperación de slack?
+        Si:
+            - Calcular frecuencia ideal.
+                > Fideal = (Tasks(Small(1), l%).SlackRMTemp - t - Small(0)) / (Tasks(Small(1), l%).SlackRMTemp - t) * Processors(LevelCurrent, 0)
+            - Actualizar tarea que define slack e instante.
+            - Calcular slacksob y slackb
+        - Calcular parte b de la tarea.
+        ¿La parte b es menor es que c+slacksob+slackb?
+        Si:
+            - Calcular parte b de la tarea.
+        No:
+            - Slacksob = Slacksob - (b - Tasks(i%, l%).RunTime * Processors(LevelCurrent, 0) / Processors(i1% + 1, 0))
+    - Actualizar tarea que define slack e instante.
+No:
+    ¿Finaliza antes que el arribo más próximo?
+    Si:
+        - Calcular la frecuencia ideal.
+        - Calcular parte b de la tarea.
+    No:
+        - Calcular la frecuencia ideal.
+        - Actualizar tarea que define slack e instante.
+        - Obtener frecuencia de la CPU según la frecuencia ideal.
+        - Calcular slacksob y slackb.
+        - Calcular la parte b de la tarea.
+        ¿La parte b es mayor que c+slacksob+slackb?
+        Si:
+            - Calcular parte b de la tarea.
+        No:
+            - Slacksob = Slacksob - (b - RunTime * Processors(Slots(Link(0), 0).LevelDVS, 0) / Processors(i1% + 1, 0))
+        
