@@ -73,6 +73,10 @@ class Scheduler:
     def energy(self):
         return self._energy
 
+    @energy.setter
+    def energy(self, energy):
+        self._energy += energy
+
 
 class LLF_mono(Scheduler):
     def __init__(self, configuration):
@@ -223,7 +227,6 @@ class LPFPS(Scheduler):
         self.current_job = None
         self.last_schedule_time = 0
         self.idle = False
-        self._energy = 0
 
     def arrival(self, time, task):
         self.ready_list.append(task.new_job(time))
