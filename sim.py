@@ -217,7 +217,7 @@ class RM_SS_mono(Scheduler):
         else:
             self.current_job = None
             self.idle = True
-        return job
+        return job, None
 
 
 class LPFPS(Scheduler):
@@ -767,10 +767,11 @@ class Simulator:
 
             if event.type == EventType.SCHEDULE:
                 next_event = self._event_list.first.value
-                job = self._scheduler.schedule(now)
+                job, time_slice = self._scheduler.schedule(now)
                 if job:
-                    if next_event.time >= now + job.runtime_left():
-                        self.insert_event(Event(now + job.runtime_left(), EventType.TERMINATED, job))
+                    runtime = time_slice if time_slice else job.runtime_left()
+                    if next_event.time >= now + runtime:
+                        self.insert_event(Event(now + runtime, EventType.TERMINATED, job), self._event_list)
                 print("{:5}\t{}\t{}\t{:.3f}\t{:.5f}".format(now, str(job if job else "E").ljust(10),
                                                 "\t".join([str(int(task.slack)) for task in self._rts.ptasks]),
                                                 self._cpu.curlvl[6], self._scheduler.energy))
