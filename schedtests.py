@@ -909,6 +909,9 @@ def rta4a(rts):
         a[idx] = task["C"]
         i[idx] = task["T"]
 
+    for task in rts:
+        task["holgura"] = task["T"] - task["C"]
+
     t_mas = rts[0]["C"]
     wcrt[0] = rts[0]["C"]
 
@@ -927,13 +930,12 @@ def rta4a(rts):
             while_loops[idx] += 1
 
             # reversed list (from lower to higher priority)
-            reversed_list = [(jdx, jtask, a[jdx]) for jdx, jtask in zip(range(len(rts[:idx]) - 1, -1, -1), reversed(rts[:idx]))]
+            reversed_list = [(jdx, jtask) for jdx, jtask in zip(range(len(rts[:idx]) - 1, -1, -1), reversed(rts[:idx]))]
 
             # now sort the reversed list from higher uf to lower uf
-            uf_sorted_list = sorted(reversed_list, key=lambda item: item[2], reverse=True)
+            uf_sorted_list = sorted(reversed_list, key=lambda item: item[1]["holgura"], reverse=True)
 
-            #for jdx, jtask in zip(range(len(rts[:idx]) - 1, -1, -1), reversed(rts[:idx])):
-            for jdx, jtask, _ in uf_sorted_list:
+            for jdx, jtask in uf_sorted_list:
                 loops[idx] += 1
                 for_loops[idx] += 1
 

@@ -61,7 +61,7 @@ def main():
     try:
         print("Method\tCC")
         for rts in get_from_file(args.file, mixrange(args.rts)):
-            analyze_rts(rts["tasks"])
+            analyze_rts(rts["ptasks"])
     except KeyboardInterrupt:
         sys.exit(1)
 

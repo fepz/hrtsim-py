@@ -1,7 +1,5 @@
-numpy>=1.17.3
 tabulate~=0.8.7
 tqdm~=4.48.2
 PyQt5>=5.15.0
-pandas
 SimPy==2.3.1
-llist
+numpy

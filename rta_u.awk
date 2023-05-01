@@ -15,7 +15,7 @@ $1 == "RTA4" {
     rta4_count += rta4;
     count += 1;
 }
-$1 == "RTA4u" {
+$1 == "RTA4a" {
     rta4u = int($2);
     rta4u_count += rta4u;
     if (rta4 < rta4u) {

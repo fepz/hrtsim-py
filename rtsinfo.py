@@ -51,7 +51,7 @@ def main():
     args = get_args()
     try:
         for rts in get_from_file(args.file, mixrange(args.rts)):
-            analyze_rts(rts["tasks"], args.show_tasks)
+            analyze_rts(rts["ptasks"], args.show_tasks)
     except KeyboardInterrupt:
         sys.exit(1)
 
