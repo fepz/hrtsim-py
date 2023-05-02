@@ -13,7 +13,7 @@ def format(rts: dict):
 
 
 def filter(args, rts: dict):
-    rts["schedulable"] = josephp(rts["ptasks"], verbose=False)
+    rts["schedulable"] = josephp(rts["ptasks"])[0]
     if args.sched:
         if rts["schedulable"]:
             format(rts)

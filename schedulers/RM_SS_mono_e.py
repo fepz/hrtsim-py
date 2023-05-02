@@ -30,7 +30,7 @@ class RM_SS_mono_e(Scheduler):
             for ptask in rts_in_lvl["ptasks"]:
                 ptask["C"] = (f[0] / lvl[0]) * ptask["C"]
 
-            josephp(rts_in_lvl["ptasks"], verbose=False)
+            josephp(rts_in_lvl["ptasks"])
 
             # The K values are also used as the slack at t=0
             calculate_k(rts_in_lvl["ptasks"])

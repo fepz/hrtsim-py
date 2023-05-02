@@ -88,7 +88,7 @@ def run_simulation(rts, args):
     """
 
     # Evaluate schedulability
-    rts["schedulable"] = josephp(rts["ptasks"], verbose=False)
+    rts["schedulable"] = josephp(rts["ptasks"])[0]
 
     # Do not simulate if only schedulable systems are required.
     if not rts["schedulable"]:

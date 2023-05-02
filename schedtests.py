@@ -1,6 +1,6 @@
 import math
 
-def josephp(rts: list, verbose=True):
+def josephp(rts: list):
     """ Calcula el WCRT de cada tarea del str y evalua la planificabilidad """
     def cc_counter(fn):
         def wrapper(*args, **kwargs):
@@ -19,7 +19,13 @@ def josephp(rts: list, verbose=True):
         return math.floor(v)
 
 
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
     schedulable = True
+
     rts[0]["R"] = rts[0]["C"]
     for i, task in enumerate(rts[1:], 1):
         r = 1
@@ -37,13 +43,10 @@ def josephp(rts: list, verbose=True):
                 schedulable = False
         task["R"] = r
 
-    if verbose:
-        print("JYP\t{0:}".format(floor.counter + ceil.counter))
-
-    return schedulable
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
-def josephp_u(rts: list, verbose=True):
+def josephp_u(rts: list):
     """ Calcula el WCRT de cada tarea del str y evalua la planificabilidad """
     def cc_counter(fn):
         def wrapper(*args, **kwargs):
@@ -61,8 +64,13 @@ def josephp_u(rts: list, verbose=True):
     def floor(v):
         return math.floor(v)
 
-
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
     schedulable = True
+
     rts[0]["R"] = rts[0]["C"]
     for i, task in enumerate(rts[1:], 1):
         r = 1
@@ -88,13 +96,10 @@ def josephp_u(rts: list, verbose=True):
                 schedulable = False
         task["R"] = r
 
-    if verbose:
-        print("JYPu\t{0:}".format(floor.counter + ceil.counter))
-
-    return schedulable
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
-def rta(rts, verbose=True):
+def rta(rts):
     def cc_counter(fn):
         def wrapper(*args, **kwargs):
             wrapper.counter += 1
@@ -158,10 +163,7 @@ def rta(rts, verbose=True):
             wcrt[idx] = 0
             break
 
-    if verbose:
-        print("RTA1\t{0:}".format(floor.counter + ceil.counter))
-
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, ceils, floor.counter + ceil.counter, loops, for_loops, while_loops]
 
 
 def rta_uf(rts, verbose=True):
@@ -239,10 +241,7 @@ def rta_uf(rts, verbose=True):
             wcrt[idx] = 0
             break
 
-    if verbose:
-        print("RTA1u\t{0:}".format(floor.counter + ceil.counter))
-
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta2(rts):
@@ -314,8 +313,7 @@ def rta2(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA2\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta2u(rts):
@@ -394,8 +392,7 @@ def rta2u(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA2u\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta3(rts):
@@ -472,8 +469,7 @@ def rta3(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA3\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta4(rts):
@@ -555,8 +551,7 @@ def rta4(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA4\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def het2(rts):
@@ -625,8 +620,7 @@ def het2(rts):
             break
         wcrt[idx] = w + task["C"]
 
-    print("HET2\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def het2u(rts):
@@ -700,8 +694,7 @@ def het2u(rts):
             break
         wcrt[idx] = w + task["C"]
 
-    print("HET2u\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta3u(rts):
@@ -784,8 +777,7 @@ def rta3u(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA3u\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 
@@ -874,8 +866,7 @@ def rta4u(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA4u\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta4a(rts):
@@ -965,8 +956,7 @@ def rta4a(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA4a\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta8(rts):
@@ -1054,5 +1044,4 @@ def rta8(rts):
             wcrt[idx] = 0
             break
 
-    print("RTA8\t{0:}".format(floor.counter + ceil.counter))
-    return [schedulable, wcrt, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
