@@ -8,8 +8,8 @@ import sys
 
 
 def format(rts: dict):
-    print("{0:}".format(len(rts["tasks"])))
-    for task in rts["tasks"]:  
+    print("{0:}".format(len(rts["ptasks"])))
+    for task in rts["ptasks"]:
         print("{0:} {1:} {2:}".format(task["C"], task["T"], task["D"]))
 
 
@@ -30,6 +30,7 @@ def main():
     args = get_args()
 
     convert_files(args.file, mixrange(args.rts))
+
 
 if __name__ == '__main__':
     main()
