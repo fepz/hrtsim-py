@@ -163,7 +163,7 @@ def rta(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, ceils, floor.counter + ceil.counter, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, loops, for_loops, while_loops]
 
 
 def rta_uf(rts, verbose=True):
