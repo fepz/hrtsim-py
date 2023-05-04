@@ -163,7 +163,7 @@ def rta(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
 
 
 def rta_uf(rts, verbose=True):
@@ -430,6 +430,8 @@ def rta3(rts):
     t = rts[0]["C"]
     wcrt[0] = rts[0]["C"]
 
+    test_flag = False
+
     for idx, task in enumerate(rts[1:], 1):
         t_mas = t + task["C"]
 
@@ -452,6 +454,9 @@ def rta3(rts):
 
                     t_mas += (a_tmp - a[jdx])
                     ceils[idx] += 1
+
+                    if (ceil(t_mas / jtask["T"]) * jtask["C"]) > a_tmp:
+                        test_flag = True
                     
                     if t_mas > task["D"]:
                         schedulable = False
@@ -469,7 +474,7 @@ def rta3(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, test_flag]
 
 
 def rta4(rts):
@@ -551,7 +556,7 @@ def rta4(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
 
 
 def het2(rts):
@@ -866,7 +871,7 @@ def rta4u(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
 
 
 def rta4a(rts):

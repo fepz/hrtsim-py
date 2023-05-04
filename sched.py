@@ -21,8 +21,17 @@ sched_methods = {"RTA": rta,
                  "JYP": josephp,
                  "JYPu": josephp_u}
 
+# [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+result_keys = {"wcrt":  1,
+               "cc":    2,
+               "ceils": 3,
+               "loops": 4,
+               "fors":  5,
+               "while": 6,
+               "test":  7}
 
-def analyze_rts(rts: list, methods: list):
+
+def analyze_rts(rts: list, methods: list, metric: list):
     """
     Analyze the RTS u, lcm and schedulability
     :param rts: rts
@@ -35,9 +44,10 @@ def analyze_rts(rts: list, methods: list):
         results[method] = sched_methods[method](rts)
 
     for k, v in results.items():
-        print("{}\t{}".format(k, v[2]))
+        print("{}\t{}".format(k, "\t".join([str(v[result_keys[mk]]) for mk in metric])))
 
-    sched = results[list(results.keys())[0]][0] # use any method sched result as reference
+    # use ther first method scheduling result as reference
+    sched = results[list(results.keys())[0]][0]
     # use the first RTA method as reference for the following RTAs
     rta_ref = None
     for k in results.keys():
@@ -48,7 +58,7 @@ def analyze_rts(rts: list, methods: list):
     for k, v in results.items():
         # check if the methods produces the same result
         if sched != v[0]:
-            print("ERROR! schedule result", file=sys.stderr)
+            print("ERROR! schedule result {}".format(k), file=sys.stderr)
             sys.exit(1)
         # check if all rta methods produces the same wcrt
         if rta_ref and k[:3] == "RTA":
@@ -63,6 +73,7 @@ def get_args():
     parser.add_argument("file", nargs='?', type=FileType('r'), default=sys.stdin, help="File with RTS.")
     parser.add_argument("--rts", type=str, help="RTS number inside file.", default="1")
     parser.add_argument("--methods", type=str, nargs='+', default=[], help="Methods to test")
+    parser.add_argument("--metric", type=str, nargs='+', default=['cc'], help="Metric")
     return parser.parse_args()
 
 
@@ -70,9 +81,9 @@ def main():
     args = get_args()
 
     try:
-        print("Method\tCC")
+        print("METHOD\t{}".format("\t".join([metric.upper() for metric in args.metric])))
         for rts in get_from_file(args.file, mixrange(args.rts)):
-            analyze_rts(rts["ptasks"], args.methods)
+            analyze_rts(rts["ptasks"], args.methods, args.metric)
     except KeyboardInterrupt:
         sys.exit(1)
 
