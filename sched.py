@@ -2,7 +2,7 @@
 
 from typing import TextIO
 from argparse import ArgumentParser, FileType
-from schedtests import rta, rta_uf, rta2, rta2u, rta3, rta3u, rta4, rta4u, rta4a, het2, het2u, josephp, josephp_u
+from schedtests import rta, rta_uf, rta2, rta2u, rta3, rta3u, rta3_t2_dec, rta3_t2_inc, rta3_t2_u, rta3u_asc, rta4, rta4u, rta4a, het2, het2u, josephp, josephp_u
 from utils.files import get_from_file
 from utils.rts import mixrange
 import sys
@@ -13,6 +13,10 @@ sched_methods = {"RTA": rta,
                  "RTA2u": rta2u,
                  "RTA3": rta3,
                  "RTA3u": rta3u,
+                 "RTA3_t2_dec": rta3_t2_dec,
+                 "RTA3_t2_inc": rta3_t2_inc,
+                 "RTA3_t2_u": rta3_t2_u,
+                 "RTA3ua": rta3u_asc,
                  "RTA4": rta4,
                  "RTA4u": rta4u,
                  "RTA4a": rta4a,
@@ -35,6 +39,8 @@ def analyze_rts(rts: list, methods: list, metric: list):
     """
     Analyze the RTS u, lcm and schedulability
     :param rts: rts
+    :param methods: list of methods to test
+    :param metric: list of metrics to evaluate
     :return: None
     """
 

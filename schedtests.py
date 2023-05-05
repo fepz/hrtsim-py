@@ -313,7 +313,7 @@ def rta2(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
 
 
 def rta2u(rts):
@@ -431,6 +431,7 @@ def rta3(rts):
     wcrt[0] = rts[0]["C"]
 
     test_flag = False
+    ciclo_techo = [ [0] * len(rts) for _ in rts ]
 
     for idx, task in enumerate(rts[1:], 1):
         t_mas = t + task["C"]
@@ -455,7 +456,98 @@ def rta3(rts):
                     t_mas += (a_tmp - a[jdx])
                     ceils[idx] += 1
 
-                    if (ceil(t_mas / jtask["T"]) * jtask["C"]) > a_tmp:
+                    tmp_work = math.ceil(t_mas / jtask["T"]) * jtask["C"]
+                    if tmp_work > a_tmp:
+                        ciclo_techo[idx][jdx] += 1
+
+                    if t_mas > task["D"]:
+                        schedulable = False
+                        break
+
+                    a[jdx] = a_tmp
+                    i[jdx] = tmp * jtask["T"]
+
+            if t == t_mas:
+                break
+
+        wcrt[idx] = t
+
+        if not schedulable:
+            wcrt[idx] = 0
+            break
+
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, ciclo_techo]
+
+
+def rta3_t2_inc(rts):
+    """ Para el paper de la jaiio52, jose incorporó el teorema 2 en rta3 """
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    @cc_counter
+    def floor(v):
+        return math.floor(v)
+
+
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
+    a = [0] * len(rts)
+    i = [0] * len(rts)
+    schedulable = True
+    flag = True
+
+    for idx, task in enumerate(rts):
+        a[idx] = task["C"]
+        i[idx] = task["T"]
+
+    t = rts[0]["C"]
+    wcrt[0] = rts[0]["C"]
+
+    test_flag = False
+
+    for idx, task in enumerate(rts[1:], 1):
+        t_mas = t + task["C"]
+
+        loops[idx] += 1
+        for_loops[idx] += 1
+
+        if t_mas <= min(i):
+            wcrt[idx] = t = t_mas
+            continue
+
+        while schedulable:
+            t = t_mas
+
+            if t_mas <= min(i):
+                break
+
+            loops[idx] += 1
+            while_loops[idx] += 1
+
+            for jdx, jtask in zip(range(len(rts[:idx])), rts[:idx]):
+                loops[idx] += 1
+                for_loops[idx] += 1
+                
+                if t_mas > i[jdx]:
+                    tmp = ceil(t_mas / jtask["T"])
+                    a_tmp = tmp * jtask["C"]
+
+                    t_mas += (a_tmp - a[jdx])
+                    ceils[idx] += 1
+
+                    if (math.ceil(t_mas / jtask["T"]) * jtask["C"]) > a_tmp:
                         test_flag = True
                     
                     if t_mas > task["D"]:
@@ -475,6 +567,187 @@ def rta3(rts):
             break
 
     return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, test_flag]
+
+
+def rta3_t2_dec(rts):
+    """ Para el paper de la jaiio52, jose incorporó el teorema 2 en rta3 """
+
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    @cc_counter
+    def floor(v):
+        return math.floor(v)
+
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
+    a = [0] * len(rts)
+    i = [0] * len(rts)
+    schedulable = True
+    flag = True
+
+    for idx, task in enumerate(rts):
+        a[idx] = task["C"]
+        i[idx] = task["T"]
+
+    t = rts[0]["C"]
+    wcrt[0] = rts[0]["C"]
+
+    test_flag = False
+
+    for idx, task in enumerate(rts[1:], 1):
+        t_mas = t + task["C"]
+
+        loops[idx] += 1
+        for_loops[idx] += 1
+
+        if t_mas <= min(i):
+            wcrt[idx] = t = t_mas
+            continue
+
+        while schedulable:
+            t = t_mas
+
+            if t_mas <= min(i):
+                break
+
+            loops[idx] += 1
+            while_loops[idx] += 1
+
+            for jdx, jtask in zip(range(len(rts[:idx]) -1, -1, -1), reversed(rts[:idx])):
+                loops[idx] += 1
+                for_loops[idx] += 1
+
+                if t_mas > i[jdx]:
+                    tmp = ceil(t_mas / jtask["T"])
+                    a_tmp = tmp * jtask["C"]
+
+                    t_mas += (a_tmp - a[jdx])
+                    ceils[idx] += 1
+
+                    if (math.ceil(t_mas / jtask["T"]) * jtask["C"]) > a_tmp:
+                        test_flag = True
+
+                    if t_mas > task["D"]:
+                        schedulable = False
+                        break
+
+                    a[jdx] = a_tmp
+                    i[jdx] = tmp * jtask["T"]
+
+            if t == t_mas:
+                break
+
+        wcrt[idx] = t
+
+        if not schedulable:
+            wcrt[idx] = 0
+            break
+
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, test_flag]
+
+
+def rta3_t2_u(rts):
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    @cc_counter
+    def floor(v):
+        return math.floor(v)
+
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
+    a = [0] * len(rts)
+    i = [0] * len(rts)
+    c = [0] * len(rts)
+    schedulable = True
+    flag = True
+
+    for idx, task in enumerate(rts):
+        a[idx] = task["C"]
+        i[idx] = task["T"]
+        task["U"] = task["C"] / task["T"]
+
+    t = rts[0]["C"]
+    wcrt[0] = rts[0]["C"]
+
+    for idx, task in enumerate(rts[1:], 1):
+        t_mas = t + task["C"]
+
+        loops[idx] += 1
+        for_loops[idx] += 1
+
+        if t_mas <= min(i):
+            wcrt[idx] = t = t_mas
+            continue
+
+        while schedulable:
+            t = t_mas
+
+            if t_mas <= min(i):
+                break
+
+            loops[idx] += 1
+            while_loops[idx] += 1
+
+            list = [(jdx, jtask, jtask["C"] / jtask["T"]) for jdx, jtask in zip(range(len(rts[:idx])), rts[:idx])]
+
+            uf_sorted_list = sorted(list, key=lambda item: item[2], reverse=True)
+
+            for jdx, jtask, _ in uf_sorted_list:
+                loops[idx] += 1
+                for_loops[idx] += 1
+
+                if t_mas > i[jdx]:
+                    tmp = ceil(t_mas / jtask["T"])
+                    a_tmp = tmp * jtask["C"]
+
+                    t_mas += (a_tmp - a[jdx])
+                    ceils[idx] += 1
+
+                    if t_mas > task["D"]:
+                        schedulable = False
+                        break
+
+                    a[jdx] = a_tmp
+                    i[jdx] = tmp * jtask["T"]
+
+            if t == t_mas:
+                break
+
+        wcrt[idx] = t
+
+        if not schedulable:
+            wcrt[idx] = 0
+            break
+
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
 
 
 def rta4(rts):
@@ -524,7 +797,6 @@ def rta4(rts):
 
             loops[idx] += 1
             while_loops[idx] += 1
-
 
             for jdx, jtask in zip(range(len(rts[:idx]) - 1, -1, -1), reversed(rts[:idx])):
                 loops[idx] += 1
@@ -782,8 +1054,91 @@ def rta3u(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
 
+
+def rta3u_asc(rts):
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    @cc_counter
+    def floor(v):
+        return math.floor(v)
+
+
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
+    a = [0] * len(rts)
+    i = [0] * len(rts)
+    c = [0] * len(rts)
+    schedulable = True
+    flag = True
+
+    for idx, task in enumerate(rts):
+        a[idx] = task["C"]
+        i[idx] = task["T"]
+        task["U"] = task["C"] / task["T"]
+
+    t = rts[0]["C"]
+    wcrt[0] = rts[0]["C"]
+
+    for idx, task in enumerate(rts[1:], 1):
+        t_mas = t + task["C"]
+
+        loops[idx] += 1
+        for_loops[idx] += 1
+
+        while schedulable:
+            t = t_mas
+
+            loops[idx] += 1
+            while_loops[idx] += 1
+
+            #reversed_list = [(jdx, jtask, jtask["C"] / jtask["T"]) for jdx, jtask in zip(range(len(rts[:idx]) - 1, -1, -1), reversed(rts[:idx]))]
+            list = [(jdx, jtask, jtask["C"] / jtask["T"]) for jdx, jtask in zip(range(len(rts[:idx]) - 1), rts[:idx])]
+
+            uf_sorted_list = sorted(list, key=lambda item: item[2], reverse=True)
+
+            for jdx, jtask, _ in uf_sorted_list:
+                loops[idx] += 1
+                for_loops[idx] += 1
+                
+                if t_mas > i[jdx]:
+                    tmp = ceil(t_mas / jtask["T"])
+                    a_tmp = tmp * jtask["C"]
+
+                    t_mas += (a_tmp - a[jdx])
+                    ceils[idx] += 1
+                    
+                    if t_mas > task["D"]:
+                        schedulable = False
+                        break
+
+                    a[jdx] = a_tmp
+                    i[jdx] = tmp * jtask["T"]
+
+            if t == t_mas:
+                break
+
+        wcrt[idx] = t
+
+        if not schedulable:
+            wcrt[idx] = 0
+            break
+
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
 
 
 def rta4u(rts):
