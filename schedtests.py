@@ -163,7 +163,7 @@ def rta(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops)]
 
 
 def rta_uf(rts, verbose=True):
@@ -241,7 +241,7 @@ def rta_uf(rts, verbose=True):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops)]
 
 
 def rta2(rts):
@@ -313,7 +313,7 @@ def rta2(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta2u(rts):
@@ -392,7 +392,7 @@ def rta2u(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops)]
 
 
 def rta3(rts):
@@ -476,7 +476,7 @@ def rta3(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, ciclo_techo]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), ciclo_techo]
 
 
 def rta3_t2_inc(rts):
@@ -566,7 +566,7 @@ def rta3_t2_inc(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, test_flag]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), test_flag]
 
 
 def rta3_t2_dec(rts):
@@ -657,7 +657,7 @@ def rta3_t2_dec(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, test_flag]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), test_flag]
 
 
 def rta3_t2_u(rts):
@@ -747,7 +747,7 @@ def rta3_t2_u(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta4(rts):
@@ -828,7 +828,7 @@ def rta4(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def het2(rts):
@@ -1054,7 +1054,7 @@ def rta3u(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta3u_asc(rts):
@@ -1138,7 +1138,7 @@ def rta3u_asc(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta4u(rts):
@@ -1226,7 +1226,7 @@ def rta4u(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, False]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta4a(rts):

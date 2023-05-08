@@ -32,10 +32,11 @@ result_keys = {"wcrt":  1,
                "loops": 4,
                "fors":  5,
                "while": 6,
-               "test":  7}
+               "while_sum": 7,
+               "test":  8}
 
 
-def analyze_rts(rts: list, methods: list, metric: list):
+def analyze_rts(rts: dict, methods: list, metric: list):
     """
     Analyze the RTS u, lcm and schedulability
     :param rts: rts
@@ -47,10 +48,10 @@ def analyze_rts(rts: list, methods: list, metric: list):
     results = {}
 
     for method in methods if methods else sched_methods:
-        results[method] = sched_methods[method](rts)
+        results[method] = sched_methods[method](rts["ptasks"])
 
     for k, v in results.items():
-        print("{}\t{}".format(k, "\t".join([str(v[result_keys[mk]]) for mk in metric])))
+        print("{}\t{}\t{}\t{}".format(rts["id"], k, 'T' if v[0] else 'F', "\t".join([str(v[result_keys[mk]]) for mk in metric])))
 
     # use ther first method scheduling result as reference
     sched = results[list(results.keys())[0]][0]
@@ -87,9 +88,9 @@ def main():
     args = get_args()
 
     try:
-        print("METHOD\t{}".format("\t".join([metric.upper() for metric in args.metric])))
+        print("ID\tMETHOD\tSCHED\t{}".format("\t".join([metric.upper() for metric in args.metric])))
         for rts in get_from_file(args.file, mixrange(args.rts)):
-            analyze_rts(rts["ptasks"], args.methods, args.metric)
+            analyze_rts(rts, args.methods, args.metric)
     except KeyboardInterrupt:
         sys.exit(1)
 
