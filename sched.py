@@ -2,7 +2,7 @@
 
 from typing import TextIO
 from argparse import ArgumentParser, FileType
-from schedtests import rta, rta_uf, rta2, rta2u, rta3, rta3u, rta3_t2_dec, rta3_t2_inc, rta3_t2_u, rta3u_asc, rta4, rta4u, rta4a, het2, het2u, josephp, josephp_u
+from schedtests import rta, rta_uf, rta2, rta2u, rta3, rta3u, rta3_t2_dec, rta3_t2_inc, rta3_t2_u, rta3u_asc, rta4, rta4_inc, rta4u, rta4u_p, rta4a, het2, het2u, josephp, josephp_u
 from utils.files import get_from_file
 from utils.rts import mixrange
 import sys
@@ -18,7 +18,9 @@ sched_methods = {"RTA": rta,
                  "RTA3_t2_u": rta3_t2_u,
                  "RTA3ua": rta3u_asc,
                  "RTA4": rta4,
+                 "RTA4_inc": rta4_inc,
                  "RTA4u": rta4u,
+                 "RTA4u_p": rta4u_p,
                  "RTA4a": rta4a,
                  "HET2": het2,
                  "HET2u": het2u,

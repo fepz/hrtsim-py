@@ -43,7 +43,7 @@ def josephp(rts: list):
                 schedulable = False
         task["R"] = r
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def josephp_u(rts: list):
@@ -96,7 +96,7 @@ def josephp_u(rts: list):
                 schedulable = False
         task["R"] = r
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta(rts):
@@ -163,7 +163,7 @@ def rta(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops)]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta_uf(rts, verbose=True):
@@ -241,7 +241,7 @@ def rta_uf(rts, verbose=True):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops)]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta2(rts):
@@ -392,7 +392,7 @@ def rta2u(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops)]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta3(rts):
@@ -831,6 +831,86 @@ def rta4(rts):
     return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
+def rta4_inc(rts):
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    @cc_counter
+    def floor(v):
+        return math.floor(v)
+
+
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
+    a = [0] * len(rts)
+    i = [0] * len(rts)
+    schedulable = True
+
+    for idx, task in enumerate(rts):
+        a[idx] = task["C"]
+        i[idx] = task["T"]
+
+    t_mas = rts[0]["C"]
+    wcrt[0] = rts[0]["C"]
+
+    min_i = i[0]
+
+    for idx, task in enumerate(rts[1:], 1):
+        t_mas += task["C"]
+
+        loops[idx] += 1
+        for_loops[idx] += 1
+
+        while t_mas > min_i:
+            min_i = i[idx]
+
+            loops[idx] += 1
+            while_loops[idx] += 1
+
+            for jdx, jtask in zip(range(len(rts[:idx])), rts[:idx]):
+                loops[idx] += 1
+                for_loops[idx] += 1
+
+                if t_mas > i[jdx]:
+                    dif_a = t_mas - a[jdx]
+                    a_mas_1 = ceil(dif_a / (jtask["T"] - jtask["C"]))
+                    ceils[idx] += 1
+
+                    t_mas = (a_mas_1 * jtask["C"]) + dif_a
+
+                    a[jdx] = a_mas_1 * jtask["C"]
+                    i[jdx] = a_mas_1 * jtask["T"]
+
+                    if t_mas > task["D"]:
+                        schedulable = False
+                        break
+
+                if min_i > i[jdx]:
+                    min_i = i[jdx]
+
+            if not schedulable:
+                break
+
+        wcrt[idx] = t_mas
+
+        if not schedulable:
+            wcrt[idx] = 0
+            break
+
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
+
 def het2(rts):
     def cc_counter(fn):
         def wrapper(*args, **kwargs):
@@ -897,7 +977,7 @@ def het2(rts):
             break
         wcrt[idx] = w + task["C"]
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def het2u(rts):
@@ -971,7 +1051,7 @@ def het2u(rts):
             break
         wcrt[idx] = w + task["C"]
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
 def rta3u(rts):
@@ -1229,6 +1309,88 @@ def rta4u(rts):
     return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
 
 
+def rta4u_p(rts):
+    """ simplified for paper """
+    def cc_counter(fn):
+        def wrapper(*args, **kwargs):
+            wrapper.counter += 1
+            return fn(*args, **kwargs)
+        wrapper.counter = 0
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    @cc_counter
+    def ceil(v):
+        return math.ceil(v)
+
+    @cc_counter
+    def floor(v):
+        return math.floor(v)
+
+
+    wcrt = [0] * len(rts)
+    ceils = [0] * len(rts)
+    loops = [0] * len(rts)
+    for_loops = [0] * len(rts)
+    while_loops = [0] * len(rts)
+    a = [0] * len(rts)
+    i = [0] * len(rts)
+    schedulable = True
+
+    for idx, task in enumerate(rts):
+        a[idx] = task["C"]
+        i[idx] = task["T"]
+        task["u"] = task["C"] / task["T"]
+
+    t_mas = wcrt[0] = rts[0]["C"]
+
+    for idx, task in enumerate(rts[1:], 1):
+        t_mas += task["C"]
+
+        loops[idx] += 1
+        for_loops[idx] += 1
+
+        while t_mas > min(i):
+            loops[idx] += 1
+            while_loops[idx] += 1
+
+            # reversed list (from lower to higher priority)
+            reversed_list = reversed(list(enumerate(rts[:idx])))
+
+            # now sort the reversed list from higher uf to lower uf
+            uf_sorted_list = sorted(reversed_list, key=lambda item: item[1]["u"], reverse=True)
+
+            #for jdx, jtask in zip(range(len(rts[:idx]) - 1, -1, -1), reversed(rts[:idx])):
+            for jdx, jtask in uf_sorted_list:
+                loops[idx] += 1
+                for_loops[idx] += 1
+
+                if t_mas > i[jdx]:
+                    dif_a = t_mas - a[jdx]
+                    a_mas_1 = ceil(dif_a / (jtask["T"] - jtask["C"]))
+                    ceils[idx] += 1
+
+                    t_mas = (a_mas_1 * jtask["C"]) + dif_a
+
+                    a[jdx] = a_mas_1 * jtask["C"]
+                    i[jdx] = a_mas_1 * jtask["T"]
+
+                    if t_mas > task["D"]:
+                        schedulable = False
+                        break
+
+            if not schedulable:
+                break
+
+        wcrt[idx] = t_mas
+
+        if not schedulable:
+            wcrt[idx] = 0
+            break
+
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
+
+
 def rta4a(rts):
     def cc_counter(fn):
         def wrapper(*args, **kwargs):
@@ -1404,4 +1566,4 @@ def rta8(rts):
             wcrt[idx] = 0
             break
 
-    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops]
+    return [schedulable, wcrt, floor.counter + ceil.counter, ceils, loops, for_loops, while_loops, sum(while_loops), False]
