@@ -90,7 +90,7 @@ class RM_SS_mono_e20(Scheduler):
         # Verify deadline.
         if job.exceeded_deadline:
             print("{:03.2f}\t{}\tDEADLINE MISS".format(tc, job.name))
-            #raise MissedDeadlineException(tc, job)
+            raise MissedDeadlineException(tc, job)
         # Executed time in ms since last execution.
         job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
         # Decrement higher priority tasks' slack.
@@ -159,7 +159,7 @@ class RM_SS_mono_e20(Scheduler):
             # New ICF?
             if self._icf_calc_flag: # or isclose(tc, self._icf_t, rel_tol=0.0005):
                 self._update_speed(tc)
-                print("new icf {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name))
+                print("new icf {} - {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name, self.min_slack_s))
                 self._icf_calc_flag = False
                 self._icf_task = self.min_slack_task
 
@@ -167,8 +167,9 @@ class RM_SS_mono_e20(Scheduler):
             if job != cpu.running:    #and job.computation_time == 0:
                 self._change_speed(job)
                 if job.computation_time == 0:
+                    #if self.lvl_tup[0][0] != self._lvlz[0]:
                     wb = job.task.data["dvs"]["wb"]
-                    if wb == "bp":# or wb == "b":
+                    if job.task.data["dvs"][wb] > 0:
                         self._preempt = False
                         t = Timer(self.sim, self._timer, [], job.task.data["dvs"][wb], cpu=self.processors[0])
                         t.start()
@@ -189,9 +190,9 @@ class RM_SS_mono_e20(Scheduler):
         return job, cpu
 
     def _print(self, event, job):
-        print("{:03.9f}\t{}\t{}\t{:1.3f}\t{:4.3f}\t{:4.3f}\t{}".format(
+        print("{:03.9f}\t{}\t{}\t{:1.3f}\t{:4.3f}\t{:4.3f}\t{:4.3f}\t{}".format(
             self.sim.now() / self.sim.cycles_per_ms, job.name, event,
-            self.f_min, job.cpu.speed, min([task.data["ss"]["slack"] for task in self.task_list]),
+            self.f_min, job.cpu.speed, self.min_slack_s, min([task.data["ss"]["slack"] for task in self.task_list]),
             '\t'.join(["{:03.3f}".format(task.data["ss"]["slack"]) for task in self.task_list])))
 
     def _calc_slack(self, tc, task):
