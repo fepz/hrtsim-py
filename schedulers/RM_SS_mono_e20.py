@@ -90,7 +90,7 @@ class RM_SS_mono_e20(Scheduler):
         # Verify deadline.
         if job.exceeded_deadline:
             print("{:03.2f}\t{}\tDEADLINE MISS".format(tc, job.name))
-            raise MissedDeadlineException(tc, job)
+            #raise MissedDeadlineException(tc, job)
         # Executed time in ms since last execution.
         job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
         # Decrement higher priority tasks' slack.
@@ -108,10 +108,13 @@ class RM_SS_mono_e20(Scheduler):
         # Remove the job from the CPU and reschedule
         self.ready_list.remove(job)
 
-        import math
-        next_arrival = min([math.ceil(tc/task.period)*task.period for task in self.task_list])
-        if not math.isclose(next_arrival, tc, rel_tol=0.0005):
-            job.cpu.resched()
+        job.cpu.resched()
+        #import math
+        #next_arrival = min([math.ceil(tc/task.period)*task.period for task in self.task_list])
+        #if math.isclose(next_arrival, tc, rel_tol=1e-05):
+            #reduce_slacks(self.task_list, next_arrival-tc, tc)
+        #else:
+            #job.cpu.resched()
 
     def schedule(self, cpu):
         # Current simulation time
@@ -157,16 +160,18 @@ class RM_SS_mono_e20(Scheduler):
             job.task.data["ss"]["start_exec_time"] = self.sim.now()
 
             # New ICF?
-            if self._icf_calc_flag: # or isclose(tc, self._icf_t, rel_tol=0.0005):
+            if self._icf_calc_flag:
                 self._update_speed(tc)
                 print("new icf {} - {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name, self.min_slack_s))
                 self._icf_calc_flag = False
                 self._icf_task = self.min_slack_task
 
             # Launch the scheduler when the task finish its B part.
-            if job != cpu.running:    #and job.computation_time == 0:
+            if job != cpu.running:
                 self._change_speed(job)
                 if job.computation_time == 0:
+                    if job.task == self._icf_task:
+                        self._update_speed(tc)
                     #if self.lvl_tup[0][0] != self._lvlz[0]:
                     wb = job.task.data["dvs"]["wb"]
                     if job.task.data["dvs"][wb] > 0:
@@ -225,7 +230,7 @@ class RM_SS_mono_e20(Scheduler):
         from math import isclose
         if job:
             dif = job.task.data["dvs"]["bp"] - job.task.data["dvs"]["b"]
-            if self.min_slack_s > dif or isclose(self.min_slack_s, dif):
+            if self.min_slack_s > dif or isclose(self.min_slack_s, dif, rel_tol=1e-05):
                 self._cpu.set_lvl(self.lvl_tup[1][6])
                 job.task.data["dvs"]["wb"] = "bp"
             else:
