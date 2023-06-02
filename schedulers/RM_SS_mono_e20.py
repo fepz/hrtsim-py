@@ -31,7 +31,6 @@ class RM_SS_mono_e20(Scheduler):
         self._lvlb = None
         self._last_activation_time = -1
         self._icf_t = 0
-        self._icf_calc_flag = False
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
         for lvl in self._cpu.lvls:
@@ -73,6 +72,7 @@ class RM_SS_mono_e20(Scheduler):
         self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
 
         self._icf_task = self.min_slack_task
+        self._icf_t = self.min_slack_t
 
         self._update_speed(0)
 
@@ -90,7 +90,7 @@ class RM_SS_mono_e20(Scheduler):
         # Verify deadline.
         if job.exceeded_deadline:
             print("{:03.2f}\t{}\tDEADLINE MISS".format(tc, job.name))
-            #raise MissedDeadlineException(tc, job)
+            raise MissedDeadlineException(tc, job)
         # Executed time in ms since last execution.
         job_runtime = (self.sim.now() - job.task.data["ss"]["start_exec_time"]) / self.sim.cycles_per_ms
         # Decrement higher priority tasks' slack.
@@ -98,11 +98,9 @@ class RM_SS_mono_e20(Scheduler):
         # Calculate this task new slack.
         job.task.data["ss"]["slack"], job.task.data["ss"]["ttma"] = self._calc_slack(tc, job.task)
         # Find the system minimum slack and the time at which it occurs.
-        self.min_slack, self.min_slack_t, min_slack_task = get_minimum_slack(self.task_list)
+        self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
         # Compute energy consumption.
         self._energy += job.computation_time * self._cpu.curlvl[3]
-        if job.task == self._icf_task:
-            self._icf_calc_flag = True
         # Log event.
         self._print('E', job)
         # Remove the job from the CPU and reschedule
@@ -142,17 +140,14 @@ class RM_SS_mono_e20(Scheduler):
                     elapsed_idle_time = (self.sim.now() - self.idle_start) / self.sim.cycles_per_ms
                     # Reduce tasks' slacks
                     reduce_slacks(self.task_list, elapsed_idle_time, tc)
+                    # Find the system minimum slack and the time at which it occurs
+                    self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
                     # Record energy consumption
                     self._energy += elapsed_idle_time * self._cpu.curlvl[3]
                     #  Restore the CPU v/f
                     self._restore_speed()
                     # Reset the idle start time.
                     self.idle_start = 0
-                    # New IFC
-                    self._icf_calc_flag = True
-
-            # Find the system minimum slack and the time at which it occurs
-            self.min_slack, self.min_slack_t, self.min_slack_task = get_minimum_slack(self.task_list)
 
             # Select the ready job with the highest priority (lowest period).
             job = min(self.ready_list, key=lambda x: x.period)
@@ -160,19 +155,16 @@ class RM_SS_mono_e20(Scheduler):
             job.task.data["ss"]["start_exec_time"] = self.sim.now()
 
             # New ICF?
-            if self._icf_calc_flag:
+            if self._icf_task != self.min_slack_task or self._icf_t != self.min_slack_t:
                 self._update_speed(tc)
                 print("new icf {} - {} - {} - {}".format(tc, self._icf_t, self.min_slack_task.name, self.min_slack_s))
-                self._icf_calc_flag = False
                 self._icf_task = self.min_slack_task
+                self._icf_t = self.min_slack_t
 
             # Launch the scheduler when the task finish its B part.
             if job != cpu.running:
                 self._change_speed(job)
                 if job.computation_time == 0:
-                    if job.task == self._icf_task:
-                        self._update_speed(tc)
-                    #if self.lvl_tup[0][0] != self._lvlz[0]:
                     wb = job.task.data["dvs"]["wb"]
                     if job.task.data["dvs"][wb] > 0:
                         self._preempt = False
