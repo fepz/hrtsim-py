@@ -2,4 +2,5 @@ tabulate~=0.8.7
 tqdm~=4.48.2
 PyQt5>=5.15.0
 SimPy==2.3.1
+pyllist
 numpy

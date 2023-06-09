@@ -3,7 +3,7 @@ from utils.files import get_from_file
 from utils.rts import mixrange
 from utils.cpu import Cpu
 from enum import Enum
-from llist import dllist
+from pyllist import dllist
 from math import ceil
 from functools import total_ordering
 import json
@@ -174,7 +174,7 @@ class RM_mono(Scheduler):
         else:
             self.current_job = None
             self.idle = True
-        return job
+        return job, None
 
 
 class RM_SS_mono(Scheduler):
@@ -183,6 +183,7 @@ class RM_SS_mono(Scheduler):
         self.ready_list = []
         self.current_job = None
         self.last_schedule_time = 0
+        self.slack = 0.0
         self.idle = False
 
     def arrival(self, time, task):
@@ -227,6 +228,7 @@ class LPFPS(Scheduler):
         self.current_job = None
         self.last_schedule_time = 0
         self.idle = False
+        self.slack = 0
 
     def arrival(self, time, task):
         self.ready_list.append(task.new_job(time))
@@ -261,7 +263,7 @@ class LPFPS(Scheduler):
             self.current_job = None
             self.idle = True
             self._configuration["cpu"].set_lvl(0.0)
-        return job
+        return job, None
 
 
 class RM_SS_mono_e(Scheduler):
@@ -284,6 +286,8 @@ class RM_SS_mono_e(Scheduler):
         self.current_job = None
         # decrement higher priority tasks slack
         reduce_slacks(self._configuration["tasks"][:(job.task.id - 1)], slice, time)
+        if job.runtime > job.task.data["C"]:
+            reduce_slacks(self.task_list[(job.task.identifier):], job.runtime - job.task.data["C"], time)
         # calculate slack
         result = slack_calc(time, job.task, self._configuration["tasks"], self._configuration["ss_methods"])
         job.task.slack = result["slack"]
@@ -293,134 +297,89 @@ class RM_SS_mono_e(Scheduler):
         job = None
         slice = time - self.last_schedule_time  # how much the task will execute
         self.last_schedule_time = time
+
+        next_stop = self._configuration["sim"].next_arrival()
+
+        error = 0.1e-9
+
         if self.current_job:
             self.current_job.runtime += slice
             reduce_slacks(self._configuration["tasks"][:(self.current_job.task.id - 1)], slice, time)
         else:
             if self.idle:
                 reduce_slacks(self._configuration["tasks"], slice, time)
+
         if self.ready_list:
-            next_stop = self._configuration["sim"].next_arrival()
             cpu = self._configuration["cpu"]
             job = min(self.ready_list, key=lambda x: x.task.t)
-            if slack_task != self._slacktask and slack_task.ttma != self._taskintervalo:
-                recuperacion_slack = True
-            if job.runtime == 0:
-                if next_stop > time + job.runtime_left and len(self.ready_list == 1):
-                    if job.absolute_deadline() < job.runtime:
-                        fideal = job.runtime_left / (next_stop - time) * cpu.curlvl[6]
-                        lvls = cpu.get_adjacent_lvls(fideal)
-                        job.b = job.runtime * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
-                    else:
-                        fideal = job.runtime_left / (next_stop - time) * cpu.curlvl[6]
-                        lvls = cpu.get_adjacent_lvls(fideal)
-                        slackb = job.runtime * (slack / (job.task.ttma - time - slack))
-                        job.b = job.runtime * ((self._lvlz[0] / self.lvl_tup[0][0]) - 1)
+
+            runtime = job.task.data["dvs"]["b"] - job.computation_time
+            runtime2 = runtime / job.task.data["C"]
+
+            if runtime2 == 1:
+                if (next_stop - time + job.task.data["C"] > error) and (len(self.ready_list) == 1):
+                    pass
                 else:
-                    if recuperacion_slack:
-                        recuperacion_slack = False
-                        fideal = job.runtime_left / (next_stop - time) * cpu.curlvl[6]
-                        lvls = cpu.get_adjacent_lvls(fideal)
-                        slacksob = (self.min_slack_t - time) * (1 - (fideal / self.lvl_tup[0][6]))
-                        slackb = job.runtime
+                    if self._icf_task != self.min_slack_task or self._icf_t != self.min_slack_t:
+                        self.f_ideal = ((self.min_slack_t - time - self.min_slack) / (self.min_slack_t - t)) * self._lvlz[ 6]
+                        self._icf_task = self.min_slack_task
+                        self._icf_t = self.min_slack_t
+                        # level p-1 and p
+                        lvl_tup = self._cpu.get_adjacent_lvls(self.f_ideal)
+                        if lvl_tup[0][0] < lvl_tup[1][0]:
+                            lvl_tup = (lvl_tup[0], lvl_tup[0])
+                        self._cpu_level_p1 = lvl_tup[0]
+                        self._cpu_level_p = lvl_tup[1]
+                        self._slacksob = (self.min_slack_t - time) * (1 - (self.f_ideal / self._cpu_level_p1[6]))
+                        self._slackb = job.task.data["C"] * self.min_slack / (self.min_slack_t - time - self.min_slack)
+
+                    job.task.data["dvs"]["b"] = job.task.data["C"] * (self._lvlz[0] / self._cpu_level_p[0])
+
+                    if (job.task.data["dvs"]["b"] - job.task.data["C"] - self._slacksob - self._slackb > error) \
+                            or (job.task.data["dvs"]["b"] - job.task.data["C"] - self.min_slack > error):
+                        job.task.data["dvs"]["b"] = job.task.data["C"] * (self._lvlz[0] / self._cpu_level_p1[0])
+                        job.task.data["dvs"]["leveldvs"] = self._cpu_level_p1
+                    else:
+                        amount = (job.task.data["dvs"]["b"] - job.task.data["C"] * (
+                                self._lvlz[0] / self._cpu_level_p1[0]))
+                        self._slacksob -= amount
+                        job.task.data["dvs"]["leveldvs"] = self._cpu_level_p
+            else:
+                if next_stop - time + runtime > error and len(self.ready_list) == 1 and (
+                        job.absolute_deadline - next_stop) < error:
+                    pass
+                else:
+                    self.f_ideal = ((self.min_slack_t - time - self.min_slack) / (self.min_slack_t - t)) * self._lvlz[6]
+                    self._icf_task = self.min_slack_task
+                    self._icf_t = self.min_slack_t
+                    # level p-1 and p
+                    lvl_tup = self._cpu.get_adjacent_lvls(self.f_min)
+                    if lvl_tup[0][0] < lvl_tup[1][0]:
+                        lvl_tup = (lvl_tup[0], lvl_tup[0])
+                    self._cpu_level_p1 = lvl_tup[0]
+                    self._cpu_level_p = lvl_tup[1]
+                    self._slacksob = (self.min_slack_t - time) * (1 - (self.f_ideal / self._cpu_level_p1[6]))
+                    self._slackb = runtime * self.min_slack / (self.min_slack_t - time - self.min_slack)
+
+                    job.task.data["dvs"]["b"] = runtime * (job.task.data["dvs"]["leveldvs"][0] / self._cpu_level_p[0])
+
+                    if (job.task.data["dvs"]["b"] - runtime - self._slacksob - self._slackb > error) \
+                            or (job.task.data["dvs"]["b"] - runtime - self.min_slack > error):
+                        job.task.data["dvs"]["b"] = runtime * (
+                                job.task.data["dvs"]["leveldvs"][0] / self._cpu_level_p1[0])
+                        job.task.data["dvs"]["leveldvs"] = self._cpu_level_p1
+                    else:
+                        self._slacksob -= (job.task.data["dvs"]["b"] - runtime * (
+                                job.task.data["dvs"]["leveldvs"][0] / self._cpu_level_p1[0]))
+                        job.task.data["dvs"]["leveldvs"] = self._cpu_level_p
 
             self.current_job = job
+            #self.processors[0].set_speed(job.task.data["dvs"]["leveldvs"][6])
             self.idle = False
         else:
             self.current_job = None
             self.idle = True
         return job
-
-
-class RM_SS_mono_e2(Scheduler):
-
-    def __init__(self, configuration):
-        super().__init__(configuration)
-        self.tasks = self._configuration["tasks"]
-        self.ss_methods = self._configuration["ss_methods"]
-        self.cpu = self._configuration["cpu"]
-        self.ready_list = []            # ready tasks
-        self.current_job = None         # task running
-        self.last_schedule_time = 0     # last time schedule() was called
-        self.idle = False               # cpu is idle
-        self.preempt = True             # preemption is enabled
-        self.lvlz = None                # minimum cpu level in which the rts is schedulable
-        self.fmin = None
-        self.slack = 0.0
-        self.slack_time = 0.0
-        self.slack_task = None
-        self.init()
-
-    def init(self):
-        # Found the minimum V/F level in which the periodic tasks are schedulable.
-        for lvl in self.cpu.lvls:
-            if rta(self.tasks, lvl[5]):
-                self.lvlz = lvl
-                break
-
-        if self.lvlz is None:
-            print("No schedulable.")
-            sys.exit(1)
-
-        # Initial CPU v/f level
-        self.fmin = self.lvlz[6]
-
-        # Update the WCET of each task
-        for task in self.tasks:
-            task.c = task.c * self.lvlz[5]
-
-        # Calculate slack at t=0
-        for task in self.tasks:
-            result = slack_calc(0, task, self.tasks, self.ss_methods)
-            task.slack = result["slack"]
-            task.ttma = result["ttma"]
-
-        # system slack and time at which it occurs
-        self.slack, self.slack_time, self.slack_task = get_minimum_slack(self.tasks)
-
-    def arrival(self, time, task):
-        self.ready_list.append(task.new_job(time))
-        return self.preempt
-
-    def terminated(self, time, job):
-        slice = time - self.last_schedule_time
-        job.runtime += slice
-        self.ready_list.remove(job)
-        self.current_job = None
-
-        # decrement higher priority tasks slack
-        reduce_slacks(self.tasks[:(job.task.id - 1)], slice, time)
-
-        # calculate slack
-        result = slack_calc(time, job.task, self.tasks, self.ss_methods)
-        job.task.slack = result["slack"]
-        job.task.ttma = result["ttma"]
-
-        # Find the system minimum slack and the time at which it occurs
-        self.slack, self.slack_time, self.slack_task = get_minimum_slack(self.tasks)
-
-    def schedule(self, time):
-        slice = time - self.last_schedule_time
-        self.last_schedule_time = time
-
-        if self.current_job:
-            self.current_job.runtime += slice
-            reduce_slacks(self.tasks[:(self.current_job.task.id - 1)], slice, time)
-        else:
-            if self.idle:
-                reduce_slacks(self.tasks, slice, time)
-
-        # Find the system minimum slack and the time at which it occurs
-        self.slack, self.slack_time, self.slack_task = get_minimum_slack(self.tasks)
-
-        if self.ready_list:
-            self.current_job = min(self.ready_list, key=lambda x: x.task.t)
-            self.idle = False
-        else:
-            self.current_job = None
-            self.idle = True
-
-        return self.current_job, None
 
 
 class Job:
@@ -867,10 +826,10 @@ class Simulator:
             if event.type == EventType.ARRIVAL:
                 task = event.value
                 self.insert_event(Event(now + task.t, EventType.ARRIVAL, task))
-                if self._scheduler.arrival(now, task):
-                    if now > self._last_schedule_time:
-                        self._last_schedule_time = now
-                        self.insert_event(Event(now, EventType.SCHEDULE, None))
+                self._scheduler.arrival(now, task)
+                if now > self._last_schedule_time:
+                    self._last_schedule_time = now
+                    self.insert_event(Event(now, EventType.SCHEDULE, None))
 
             if event.type == EventType.TERMINATED:
                 job = event.value
@@ -887,6 +846,7 @@ class Simulator:
                     if next_event.time >= now + runtime:
                         self.insert_event(Event(now + runtime, EventType.TERMINATED, job))
 
+                #print("{:5.3f}\t{}".format(now, str(job if job else "E").ljust(10)))
                 print("{:5.3f}\t{}\t{:.3f}\t{}\t{:.3f}\t{:.5f}".format(now, str(job if job else "E").ljust(10),
                                                 self._scheduler.slack, "\t".join([str(int(task.slack)) for task in self._rts.ptasks]),
                                                 self._cpu.curlvl[6], self._scheduler.energy))
@@ -901,7 +861,6 @@ class Simulator:
 schedulers = {"RM_mono": RM_mono,
               "RM_SS_mono": RM_SS_mono,
               "RM_SS_mono_e": RM_SS_mono_e,
-              "RM_SS_mono_e2": RM_SS_mono_e2,
               "EDF_mono": EDF_mono,
               "LLF_mono": LLF_mono,
               "LPFPS": LPFPS}
