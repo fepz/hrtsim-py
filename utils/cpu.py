@@ -42,14 +42,9 @@ class Cpu:
                 return
 
     def get_adjacent_lvls(self, freq):
-        lvl_u = None
-        lvl_d = None
-        for i, lvl in enumerate(self.lvls):
+        for i, lvl in enumerate(self.lvls[1:], start=1):
             if lvl[6] >= freq:
-                lvl_u = lvl
-                lvl_d = self.lvls[i - 1]
-                break
-        return lvl_u, lvl_d
+                return lvl, self.lvls[i - 1]
 
     def get_lvl_idx(self, freq):
         for i, lvl in enumerate(self.lvls[1:], start=1):
