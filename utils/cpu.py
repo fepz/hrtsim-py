@@ -51,6 +51,11 @@ class Cpu:
                 break
         return lvl_u, lvl_d
 
+    def get_lvl_idx(self, freq):
+        for i, lvl in enumerate(self.lvls[1:], start=1):
+            if lvl[6] >= freq:
+                return i - 1, self.lvls[i - 1]
+
     def get_lvl(self, lvl):
         return self._cpuinfo["lvls"][lvl]
 
