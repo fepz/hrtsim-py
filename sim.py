@@ -36,7 +36,6 @@ class Configuration:
         self._sim = sim
         self._scheduler = scheduler
         self._cpu = cpu
-        self._slack = slack
 
     @property
     def sim(self):
@@ -61,6 +60,8 @@ class Scheduler:
         self._energy = 0.0
         self._free = 0.0
         self._leveldvs = 0
+        self._slack = 0.0
+        self._cpu = configuration["cpu"]
 
     def arrival(self, time, task):
         pass
@@ -86,6 +87,21 @@ class Scheduler:
     def free(self, free):
         self._free = free
 
+    @property
+    def slack(self):
+        return self._free
+
+    @slack.setter
+    def slack(self, slack):
+        self._slack = slack
+
+    @property
+    def cpu(self):
+        return self._cpu
+
+    @cpu.setter
+    def cpu(self, cpu):
+        self._cpu = cpu
 
 class LLF_mono(Scheduler):
     def __init__(self, configuration):
@@ -101,6 +117,7 @@ class LLF_mono(Scheduler):
     def terminated(self, time, job):
         slice = time - self.last_schedule_time
         job.runtime += slice
+        self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
         self.ready_list.remove(job)
         self.current_job = None
 
@@ -110,6 +127,7 @@ class LLF_mono(Scheduler):
         self.last_schedule_time = time
         if self.current_job:
             self.current_job.runtime += slice
+            self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
         if self.ready_list:
             job = min(self.ready_list, key=lambda x: x.current_laxity(time))
             self.current_job = job
@@ -117,7 +135,7 @@ class LLF_mono(Scheduler):
         else:
             self.current_job = None
             self.idle = True
-        return job
+        return job, 0, job.task.c - job.runtime if job else 0
 
 
 class EDF_mono(Scheduler):
@@ -134,6 +152,7 @@ class EDF_mono(Scheduler):
     def terminated(self, time, job):
         slice = time - self.last_schedule_time
         job.runtime += slice
+        self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
         self.ready_list.remove(job)
         self.current_job = None
 
@@ -143,6 +162,7 @@ class EDF_mono(Scheduler):
         self.last_schedule_time = time
         if self.current_job:
             self.current_job.runtime += slice
+            self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
         if self.ready_list:
             job = min(self.ready_list, key=lambda x: x.absolute_deadline)
             self.current_job = job
@@ -150,7 +170,7 @@ class EDF_mono(Scheduler):
         else:
             self.current_job = None
             self.idle = True
-        return job
+        return job, 0, job.task.c - job.runtime if job else 0
 
 
 class RM_mono(Scheduler):
@@ -161,7 +181,6 @@ class RM_mono(Scheduler):
         self.last_schedule_time = 0
         self.idle = False
         self.slack = 0
-        self.cpu = self._configuration["cpu"]
 
     def arrival(self, time, task):
         self.ready_list.append(task.new_job(time))
@@ -205,6 +224,7 @@ class RM_SS_mono(Scheduler):
     def terminated(self, time, job):
         slice = time - self.last_schedule_time
         job.runtime += slice
+        self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
         self.ready_list.remove(job)
         self.current_job = None
         # decrement higher priority tasks slack
@@ -220,6 +240,7 @@ class RM_SS_mono(Scheduler):
         self.last_schedule_time = time
         if self.current_job:
             self.current_job.runtime += slice
+            self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
             reduce_slacks(self._configuration["tasks"][:(self.current_job.task.id - 1)], slice, time)
         else:
             if self.idle:
@@ -245,7 +266,6 @@ class LPFPS(Scheduler):
         self.last_schedule_time = 0
         self.idle = False
         self.slack = 0
-        self.cpu = self._configuration["cpu"]
         self.cpu_lvl = self.cpu.lvls[-1]
 
     def arrival(self, time, task):
@@ -302,7 +322,6 @@ class RM_SS_mono_e(Scheduler):
 
         self.tasks = configuration["tasks"]
 
-        self.cpu = configuration["cpu"]
         self.cpu_lvlz = None
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
@@ -555,6 +574,7 @@ class Task:
         self._job = None
         self._last_job = None
         self._job_counter = 0
+        self._slack = 0
 
     @property
     def id(self):
