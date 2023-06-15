@@ -1026,11 +1026,10 @@ def main():
     args = get_args()
 
     # Simulate the selected rts from the specified file.
-    for jrts in get_from_file(args.file, mixrange(args.rts)):
+    for rts in get_from_file(args.file, mixrange(args.rts)):
         if args.verbose:
-            print("Simulating RTS {0:}".format(jrts["id"]), file=sys.stderr)
-        rts = Rts(jrts)
-        sim = Simulator(rts, args)
+            print("Simulating RTS {0:}".format(rts["id"]), file=sys.stderr)
+        sim = Simulator(Rts(rts), args)
         sim.sim()
 
 
