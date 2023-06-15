@@ -322,8 +322,6 @@ class RM_SS_mono_e(Scheduler):
         for task in self.tasks:
             task.c = task.c * self.cpu_lvlz[5]
 
-        calculate_k(self.tasks)
-
         # Calculate slack at t=0
         for task in self.tasks:
             result = slack_calc(0, task, self.tasks, self._configuration["ss_methods"])
@@ -663,7 +661,6 @@ class Rts:
     def __init__(self, tasks):
         self._ptasks = [Task(ptask) for ptask in tasks["ptasks"]]
         self._schedulable = rta(self.ptasks)
-        calculate_k(self.ptasks)
 
     @property
     def ptasks(self):
@@ -1033,13 +1030,6 @@ def main():
         if args.verbose:
             print("Simulating RTS {0:}".format(jrts["id"]), file=sys.stderr)
         rts = Rts(jrts)
-        slack = slack_methods["Fixed2"]()
-        # Calculate slack at t=0
-        for task in rts.ptasks:
-            result = slack.calculate_slack(task, rts.ptasks, 0)
-            task.slack = result["slack"]
-            task.ttma = result["ttma"]
-
         sim = Simulator(rts, args)
         sim.sim()
 
