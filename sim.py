@@ -115,6 +115,9 @@ class LLF_mono(Scheduler):
         self.ready_list.append(task.new_job(time))
 
     def terminated(self, time, job):
+        if time > job.absolute_deadline:
+            print("{} missed deadline at {:5.3f}".format(job, job.absolute_deadline))
+            exit(1)
         slice = time - self.last_schedule_time
         job.runtime += slice
         self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
@@ -150,6 +153,9 @@ class EDF_mono(Scheduler):
         self.ready_list.append(task.new_job(time))
 
     def terminated(self, time, job):
+        if time > job.absolute_deadline:
+            print("{} missed deadline at {:5.3f}".format(job, job.absolute_deadline))
+            exit(1)
         slice = time - self.last_schedule_time
         job.runtime += slice
         self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
@@ -186,6 +192,9 @@ class RM_mono(Scheduler):
         self.ready_list.append(task.new_job(time))
 
     def terminated(self, time, job):
+        if time > job.absolute_deadline:
+            print("{} missed deadline at {:5.3f}".format(job, job.absolute_deadline))
+            exit(1)
         slice = time - self.last_schedule_time
         job.runtime += slice
         self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
@@ -222,6 +231,9 @@ class RM_SS_mono(Scheduler):
         self.ready_list.append(task.new_job(time))
 
     def terminated(self, time, job):
+        if time > job.absolute_deadline:
+            print("{} missed deadline at {:5.3f}".format(job, job.absolute_deadline))
+            exit(1)
         slice = time - self.last_schedule_time
         job.runtime += slice
         self.energy = self.energy + (slice * self.cpu.lvls[-1][3])
@@ -360,6 +372,9 @@ class RM_SS_mono_e(Scheduler):
         self.ready_list.append(job)
 
     def terminated(self, time, job):
+        if time > job.absolute_deadline:
+            print("{} missed deadline at {:5.3f}".format(job, job.absolute_deadline))
+            exit(1)
         self.ready_list.remove(job)
         time_slice = time - self.last_schedule_time
         job.runtime += time_slice
