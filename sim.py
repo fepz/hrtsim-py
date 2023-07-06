@@ -419,7 +419,7 @@ class RM_SS_mono_e(Scheduler):
         if self.ready_list:
             job = min(self.ready_list, key=lambda x: x.task.t)
 
-            if self.current_job == job or self.slack == 0:
+            if self.slack == 0:
                 self.current_job = job
                 return job, 0, job.b
 
