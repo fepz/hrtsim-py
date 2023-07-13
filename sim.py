@@ -346,6 +346,8 @@ class RM_SS_mono_e(Scheduler):
         self.cpu_lvlz = None
         self.icf_task = None
         self.icf_time = 0
+        self.empty_counter = 0
+        self.min_level = None
 
         # Found the minimum V/F level in which the periodic tasks are schedulable.
         for lvl in self.cpu.lvls:
@@ -413,6 +415,8 @@ class RM_SS_mono_e(Scheduler):
                 reduce_slacks(self.tasks, time_slice, time)
                 self.free += time_slice
                 self.idle = False
+                self.energy = self.energy + (time_slice * self.cpu.lvls[0][3])
+                self.empty_counter += 1
 
         self.slack, self.slack_time, self.slack_task = get_minimum_slack(self.tasks)
 
@@ -448,9 +452,11 @@ class RM_SS_mono_e(Scheduler):
             if (next_stop - time - job.task.c > error) and (len(self.ready_list) == 1):
                 self.f_ideal = job.task.c / (next_stop - time) * self.cpu_lvlz[6]
                 i, l = self.cpu.get_lvl_idx(self.f_ideal)
+                #leveldvs = l
                 for lvl in self.cpu.lvls[i:]:
                     b = job.task.c * (self.cpu_lvlz[0] / lvl[0])
                     if b - job.task.c - self.slack <= error:
+                        leveldvs = lvl
                         break
                 if isclose(job.absolute_deadline, next_stop):
                     pass
@@ -464,12 +470,16 @@ class RM_SS_mono_e(Scheduler):
                     self.icf_time = self.slack_time
                     # level p-1 and p
                     self._cpu_level_p1, self._cpu_level_p = self.cpu.get_adjacent_lvls(self.f_ideal)
+                    self.min_level = (self._cpu_level_p1, self._cpu_level_p)
                     self._slacksob = (self.slack_time - time) * (1 - (self.f_ideal / self._cpu_level_p1[6]))
                     self._slackb = job.task.c * self.slack / (self.slack_time - time - self.slack)
 
-                b = job.task.c * (self.cpu_lvlz[0] / self._cpu_level_p[0])
+                #b = job.task.c * (self.cpu_lvlz[0] / self._cpu_level_p[0])
+                b = job.task.c * (self.cpu_lvlz[0] / self.min_level[1][0])
 
-                leveldvs = job.leveldvs
+                #leveldvs = job.leveldvs
+                #leveldvs = self._cpu_level_p
+                leveldvs = self.min_level[1]
                 if (b - job.task.c - self._slacksob - self._slackb > error) or (b - job.task.c - self.slack > error):
                     i, l = self.cpu.get_lvl_idx(self.f_ideal)
                     for lvl in self.cpu.lvls[i + 1:]:
@@ -490,6 +500,7 @@ class RM_SS_mono_e(Scheduler):
             if next_stop - (time + runtime) > error and len(self.ready_list) == 1 and (job.absolute_deadline - next_stop) < error:
                 self.f_ideal = runtime / (next_stop - time) * job.leveldvs[6]
                 i, l = self.cpu.get_lvl_idx(self.f_ideal)
+                #leveldvs = l
                 for lvl in self.cpu.lvls[i + 1:]:
                     b = runtime * (self.cpu_lvlz[0] / lvl[0])
                     if b - (runtime + self.slack) < error and abs(b - job.task.c - self.slack) < error:
@@ -502,8 +513,11 @@ class RM_SS_mono_e(Scheduler):
                 self.f_ideal = ((self.slack_time - time - self.slack) / (self.slack_time - time)) * self.cpu_lvlz[6]
                 # level p-1 and p
                 self._cpu_level_p1, self._cpu_level_p = self.cpu.get_adjacent_lvls(self.f_ideal)
+                self.min_level = (self._cpu_level_p1, self._cpu_level_p)
                 self._slacksob = (self.slack_time - time) * (1 - (self.f_ideal / self._cpu_level_p1[6]))
                 self._slackb = runtime * self.slack / (self.slack_time - time - self.slack)
+
+                leveldvs = self._cpu_level_p
 
                 #job.b = runtime * (job.leveldvs[0] / self._cpu_level_p[0])
                 b = runtime * (job.leveldvs[0] / self._cpu_level_p[0])
@@ -522,12 +536,13 @@ class RM_SS_mono_e(Scheduler):
                     self._slacksob -= (b - runtime * (job.leveldvs[0] / self._cpu_level_p1[0]))
                     #leveldvs = self._cpu_level_p
 
+        b_tmp = (job.leveldvs[0] / leveldvs[0]) * runtime
         if b_tmp - b < error:
             if leveldvs[0] < job.leveldvs[0]:
                 job.b = b
                 job.leveldvs = leveldvs
-            else:
-                job.b = b_tmp
+            #else:
+                #job.b = b_tmp
 
         return job, job.b - job.b_temp, job.b_temp
 
@@ -1165,6 +1180,7 @@ class Simulator:
         np_flag = False
         np_flag_sched = False
         np = 0
+        prev_energy = 0
         while self._event_list:
             event = self._event_list.popleft()
             now = event.time
@@ -1194,6 +1210,7 @@ class Simulator:
                     self._last_schedule_time = now
 
             if event.type == EventType.SCHEDULE:
+                current_energy = self._scheduler.energy
                 next_event = self._event_list.first.value
                 decision = self._scheduler.schedule(now)
                 np_flag = False
@@ -1214,16 +1231,20 @@ class Simulator:
                         np = decision[1]
 
                 if not self._args.silent:
-                    print("{:5.3f}\t{}\t{:.3f}\t{}\t{:.3f}\t{:.3f}".format(now, str(job if job else "E").rjust(10, ' '),
+                    print("{:5.3f}\t{}\t{:.3f}\t{}\t{:.3f}\t{:.3f}\t{:.3f}".format(now, str(job if job else "E").rjust(10, ' '),
                                                     self._scheduler.slack, "\t".join(["{:03.3f}".format(task.slack) for task in self._rts.ptasks]),
                                                     self._scheduler.current_job.leveldvs[6] if self._scheduler.current_job else 0,
-                                                    self._scheduler.energy))
+                                                    self._scheduler.energy, self._scheduler.energy - prev_energy))
+                    prev_energy = self._scheduler.energy
+
 
         for ss_method in self._ss_methods:
             print("{}: {}".format(ss_method.__class__.__name__, ss_method.telemetry()))
         print("{}".format(self._scheduler.energy))
+        print("{}".format(self._scheduler.free))
         print("{}".format(self._scheduler.free / now))
         print("{}".format(self._scheduler.f_min))
+        print("{}".format(self._scheduler.empty_counter))
 
     def next_arrival(self):
         return self._event_list.first.value.time
