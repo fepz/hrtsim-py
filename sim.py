@@ -399,7 +399,8 @@ class RM_SS_mono_e(Scheduler):
         job.task.ttma = result["ttma"]
 
     def schedule(self, time):
-        time_slice = time - self.last_schedule_time
+        #time_slice = time - self.last_schedule_time
+        time_slice = round(time - self.last_schedule_time, 3)
         next_stop = self._configuration["sim"].next_arrival()
         self.last_schedule_time = time
 
@@ -407,7 +408,11 @@ class RM_SS_mono_e(Scheduler):
             self.current_job.runtime += time_slice
             reduce_slacks(self.tasks[:self.current_job.task.id - 1], time_slice, time)
             if self.current_job.b > self.current_job.b_temp:
-                reduce_slacks(self.tasks[self.current_job.task.id - 1:], self.current_job.b - self.current_job.b_temp, time)
+                b_diff = round(self.current_job.b - self.current_job.b_temp, 3)
+                if b_diff <= 0.001:
+                    b_diff = 0
+                #reduce_slacks(self.tasks[self.current_job.task.id - 1:], self.current_job.b - self.current_job.b_temp, time)
+                reduce_slacks(self.tasks[self.current_job.task.id - 1:], b_diff, time)
             self.current_job.b -= time_slice
             self.energy = self.energy + (time_slice * self.current_job.leveldvs[3])
         else:
@@ -420,21 +425,27 @@ class RM_SS_mono_e(Scheduler):
 
         self.slack, self.slack_time, self.slack_task = get_minimum_slack(self.tasks)
 
+        same_job_flag = False
+
         if self.ready_list:
             job = min(self.ready_list, key=lambda x: x.task.t)
 
+            if job == self.current_job:
+                same_job_flag = True
+
             if self.slack == 0:
                 self.current_job = job
-                return job, 0, job.b
+                return job, 0, job.b, same_job_flag
 
             self.current_job = job
 
-            return self._new_runtime(job, time, next_stop)
+            result = self._new_runtime(job, time, next_stop)
+            return result[0], result[1], result[2], same_job_flag
         else:
             self.current_job = None
             self.idle = True
 
-        return self.current_job, 0, 0
+        return self.current_job, 0, 0, same_job_flag
 
     def _new_runtime(self, job, time, next_stop):
         runtime = job.b
@@ -503,7 +514,8 @@ class RM_SS_mono_e(Scheduler):
                 #leveldvs = l
                 for lvl in self.cpu.lvls[i + 1:]:
                     b = runtime * (self.cpu_lvlz[0] / lvl[0])
-                    if b - (runtime + self.slack) < error and abs(b - job.task.c - self.slack) < error:
+                    #if b - (runtime + self.slack) < error and abs(b - job.task.c - self.slack) < error:
+                    if b - (runtime + self.slack) < error and b - job.task.c - self.slack < error:
                         if lvl[0] < job.leveldvs[0]:
                             #job.b = b
                             #job.leveldvs = lvl
@@ -513,6 +525,13 @@ class RM_SS_mono_e(Scheduler):
                 self.f_ideal = ((self.slack_time - time - self.slack) / (self.slack_time - time)) * self.cpu_lvlz[6]
                 # level p-1 and p
                 self._cpu_level_p1, self._cpu_level_p = self.cpu.get_adjacent_lvls(self.f_ideal)
+
+                #for lvl_idx, lvl in enumerate(self.cpu.lvls):
+                #    if self.f_ideal <= lvl[6]:
+                #        self._cpu_level_p = lvl
+                #        self._cpu_level_p1 = self.cpu.lvls[lvl_idx - 1]
+                #        break
+
                 self.min_level = (self._cpu_level_p1, self._cpu_level_p)
                 self._slacksob = (self.slack_time - time) * (1 - (self.f_ideal / self._cpu_level_p1[6]))
                 self._slackb = runtime * self.slack / (self.slack_time - time - self.slack)
@@ -539,7 +558,8 @@ class RM_SS_mono_e(Scheduler):
         b_tmp = (job.leveldvs[0] / leveldvs[0]) * runtime
         if b_tmp - b < error:
             if leveldvs[0] < job.leveldvs[0]:
-                job.b = b
+                #job.b = b
+                job.b = b_tmp
                 job.leveldvs = leveldvs
             #else:
                 #job.b = b_tmp
@@ -767,7 +787,8 @@ def get_minimum_slack(tasks: list):
 
 def reduce_slacks(tasks, amount, t):
     for task in tasks:
-        task.slack -= amount
+        #task.slack -= amount
+        task.slack = round(task.slack - amount, 3)
         if isclose(task.slack, 0, abs_tol=1e-5):
             task.slack = 0
         if task.slack < 0:
@@ -1185,6 +1206,8 @@ class Simulator:
             event = self._event_list.popleft()
             now = event.time
 
+            arrival_on_this_time = False
+
             if event.type == EventType.END:
                 break
 
@@ -1194,13 +1217,16 @@ class Simulator:
                 self._scheduler.arrival(now, task)
                 if np_flag:
                     if not np_flag_sched:
-                        self.insert_event(Event(self._last_schedule_time + np, EventType.SCHEDULE, None))
+                        insert_event_time = round(self._last_schedule_time + np, 3)
+                        #self.insert_event(Event(self._last_schedule_time + np, EventType.SCHEDULE, None))
+                        self.insert_event(Event(insert_event_time, EventType.SCHEDULE, None))
                         self._last_schedule_time = self._last_schedule_time + np
                         np_flag_sched = True
                 else:
                     if now > self._last_schedule_time:
                         self._last_schedule_time = now
                         self.insert_event(Event(now, EventType.SCHEDULE, None))
+                arrival_on_this_time = True
 
             if event.type == EventType.TERMINATED:
                 job = event.value
@@ -1236,6 +1262,7 @@ class Simulator:
                                                     self._scheduler.current_job.leveldvs[6] if self._scheduler.current_job else 0,
                                                     self._scheduler.energy, self._scheduler.energy - prev_energy))
                     prev_energy = self._scheduler.energy
+                    arrival_on_this_time = False
 
 
         for ss_method in self._ss_methods:

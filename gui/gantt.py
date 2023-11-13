@@ -81,7 +81,7 @@ class GanttCanvas(QWidget):
         self._update()
 
     def convX(self, x):
-        return x * self._vwidth // (self._end_date - self._start_date)
+        return x * self._vwidth / (self._end_date - self._start_date)
 
     def origGraph(self, c):
         offX = 20
@@ -194,7 +194,7 @@ class GanttCanvas(QWidget):
         qp.setPen(color)
         qp.setBrush(color)
         x, y = self.origGraph(c)
-        qp.drawEllipse(x + self.convX(int(x_circle)) - 1, y + 50 - 1, 3, 3)
+        qp.drawEllipse(x + self.convX(x_circle) - 1, y + 50 - 1, 3, 3)
         qp.restore()
 
     def get_color(self, i):
@@ -340,17 +340,18 @@ class GanttCanvas(QWidget):
         self._image[0].save(file)
 
     def zoomDown(self):
-        self._vwidth //= 1.2
-        self._vwidth = int(self._vwidth)
+        self._vwidth /= 1.2
+        #self._vwidth = int(self._vwidth)
         if self._vwidth < 200:
             self._vwidth = 200
         self._width = self._vwidth + 40
         self._update()
 
     def zoomUp(self):
-        #self._vwidth *= 1.2
-        self._vwidth = int(self._vwidth * 1.2)
-        self._width = int(self._vwidth + 40)
+        self._vwidth *= 1.2
+        self._width = self._vwidth + 40
+        #self._vwidth = int(self._vwidth * 1.2)
+        #self._width = int(self._vwidth + 40)
         self._update()
 
     def create_qimage(self):
