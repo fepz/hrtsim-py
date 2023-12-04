@@ -399,8 +399,8 @@ class RM_SS_mono_e(Scheduler):
         job.task.ttma = result["ttma"]
 
     def schedule(self, time):
-        #time_slice = time - self.last_schedule_time
-        time_slice = round(time - self.last_schedule_time, 3)
+        time_slice = time - self.last_schedule_time
+        #time_slice = round(time - self.last_schedule_time, 3)
         next_stop = self._configuration["sim"].next_arrival()
         self.last_schedule_time = time
 
@@ -408,10 +408,11 @@ class RM_SS_mono_e(Scheduler):
             self.current_job.runtime += time_slice
             reduce_slacks(self.tasks[:self.current_job.task.id - 1], time_slice, time)
             if self.current_job.b > self.current_job.b_temp:
-                b_diff = round(self.current_job.b - self.current_job.b_temp, 3)
-                if b_diff <= 0.001:
-                    b_diff = 0
+                #b_diff = round(self.current_job.b - self.current_job.b_temp, 3)
+                #if b_diff <= 0.001:
+                    #b_diff = 0
                 #reduce_slacks(self.tasks[self.current_job.task.id - 1:], self.current_job.b - self.current_job.b_temp, time)
+                b_diff = self.current_job.b - self.current_job.b_temp
                 reduce_slacks(self.tasks[self.current_job.task.id - 1:], b_diff, time)
             self.current_job.b -= time_slice
             self.energy = self.energy + (time_slice * self.current_job.leveldvs[3])
@@ -1182,6 +1183,8 @@ class Simulator:
         self._scheduler = schedulers[args.scheduler]({"sim": self, "tasks": self._rts.ptasks, "ss_methods": self._ss_methods, "cpu": self._cpu})
         self._last_schedule_time = -1
 
+        self._delta = 0.1e-5
+
     def insert_event(self, event):
         tmpnode = None
 
@@ -1202,11 +1205,10 @@ class Simulator:
         np_flag_sched = False
         np = 0
         prev_energy = 0
+
         while self._event_list:
             event = self._event_list.popleft()
             now = event.time
-
-            arrival_on_this_time = False
 
             if event.type == EventType.END:
                 break
@@ -1217,7 +1219,8 @@ class Simulator:
                 self._scheduler.arrival(now, task)
                 if np_flag:
                     if not np_flag_sched:
-                        insert_event_time = round(self._last_schedule_time + np, 3)
+                        #insert_event_time = round(self._last_schedule_time + np, 3)
+                        insert_event_time = self._last_schedule_time + np
                         #self.insert_event(Event(self._last_schedule_time + np, EventType.SCHEDULE, None))
                         self.insert_event(Event(insert_event_time, EventType.SCHEDULE, None))
                         self._last_schedule_time = self._last_schedule_time + np
@@ -1226,7 +1229,6 @@ class Simulator:
                     if now > self._last_schedule_time:
                         self._last_schedule_time = now
                         self.insert_event(Event(now, EventType.SCHEDULE, None))
-                arrival_on_this_time = True
 
             if event.type == EventType.TERMINATED:
                 job = event.value
@@ -1236,7 +1238,6 @@ class Simulator:
                     self._last_schedule_time = now
 
             if event.type == EventType.SCHEDULE:
-                current_energy = self._scheduler.energy
                 next_event = self._event_list.first.value
                 decision = self._scheduler.schedule(now)
                 np_flag = False
@@ -1244,12 +1245,12 @@ class Simulator:
                 job = decision[0]
                 if job:
                     slice = decision[1] + decision[2]
-                    if ((now + slice) - next_event.time) <= 0.1e-5:
+                    if ((now + slice) - next_event.time) <= self._delta:
                         event_time = now + slice
-                        if abs(now + slice - next_event.time) < 0.1e-5:
+                        if abs(now + slice - next_event.time) < self._delta:
                             event_time = next_event.time
                         self.insert_event(Event(event_time, EventType.TERMINATED, job))
-                    elif ((now + decision[1]) - next_event.time) <= 0.1e-5:
+                    elif ((now + decision[1]) - next_event.time) <= self._delta:
                         pass
                     else:
                         np_flag = True
@@ -1262,16 +1263,23 @@ class Simulator:
                                                     self._scheduler.current_job.leveldvs[6] if self._scheduler.current_job else 0,
                                                     self._scheduler.energy, self._scheduler.energy - prev_energy))
                     prev_energy = self._scheduler.energy
-                    arrival_on_this_time = False
 
-
+        ss_method_results = {"Method":[], "Ceils":[], "Floors":[]}
         for ss_method in self._ss_methods:
-            print("{}: {}".format(ss_method.__class__.__name__, ss_method.telemetry()))
-        print("{}".format(self._scheduler.energy))
-        print("{}".format(self._scheduler.free))
-        print("{}".format(self._scheduler.free / now))
-        print("{}".format(self._scheduler.f_min))
-        print("{}".format(self._scheduler.empty_counter))
+            ss_method_results["Method"].append(ss_method.__class__.__name__)
+            ss_method_results["Ceils"].append(ss_method.telemetry()["ceils"])
+            ss_method_results["Floors"].append(ss_method.telemetry()["floors"])
+
+        results = [["Energy", self._scheduler.energy],
+                   ["Free", self._scheduler.free],
+                   ["Free %", self._scheduler.free / now],
+                   ["Min f", self._scheduler.f_min],
+                   ["Empty slots", self._scheduler.empty_counter]]
+
+        from tabulate import tabulate
+        print(tabulate(ss_method_results, tablefmt="simple", headers="keys"))
+        print(tabulate(results, tablefmt="simple"))
+
 
     def next_arrival(self):
         return self._event_list.first.value.time
