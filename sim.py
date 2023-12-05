@@ -1285,7 +1285,7 @@ class Simulator:
         from tabulate import tabulate
         print(tabulate(ss_method_results, tablefmt="simple", headers="keys"))
         print(tabulate(results, tablefmt="simple"))
-
+        sys.stdout.flush()
 
     def next_arrival(self):
         return self._event_list.first.value.time
