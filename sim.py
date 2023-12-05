@@ -12,6 +12,11 @@ import math
 import sys
 
 
+def lcm(rts: list) -> float:
+    """ Real-time system hiperperiod (l.c.m) """
+    from functools import reduce
+    return reduce(lambda x, y: (x * y) // math.gcd(x, y), [task.t for task in rts], 1)
+
 @total_ordering
 class EventType(Enum):
     END = 1
@@ -1174,11 +1179,12 @@ class Simulator:
 
         self._ss_methods = [slack_methods[ss]() for ss in args.ss_methods]
 
-        #end_time = self._rts.ptasks[-1].t * args.instance_count
-        end_time = args.end
-        self.insert_event(Event(end_time, EventType.END, None))
-
-        self._cpu = Cpu(json.load(args.cpu)) if args.cpu else None
+        if args.end:
+            end_time = args.end
+            self.insert_event(Event(end_time, EventType.END, None))
+        else:
+            end_time = lcm(self._rts.ptasks)
+            self.insert_event(Event(end_time, EventType.END, None))
 
         self._scheduler = schedulers[args.scheduler]({"sim": self, "tasks": self._rts.ptasks, "ss_methods": self._ss_methods, "cpu": self._cpu})
         self._last_schedule_time = -1
@@ -1304,7 +1310,7 @@ def get_args():
     parser.add_argument("--rts", type=str, help="Which RTS simulate.", default="1")
     parser.add_argument("--scheduler", type=str, help="Scheduling algorithm")
     parser.add_argument("--instance-count", type=int, default=5, help="Stop the simulation after the specified number of instances of the lowest priority task.")
-    parser.add_argument("--end", type=int, default=100, help="Stop the simulation at this instant.")
+    parser.add_argument("--end", type=int, default=None, help="Stop the simulation at this instant.")
     parser.add_argument("--ss-methods", nargs='+', type=str, help="Slack Stealing methods.")
     parser.add_argument("--only-schedulable", action="store_true", default=False, help="Simulate only schedulable systems.")
     parser.add_argument("--gantt", action="store_true", default=False, help="Show scheduling gantt.")
