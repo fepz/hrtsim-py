@@ -1169,7 +1169,7 @@ class Fixed2Slack(SlackMethod):
 
 
 class Simulator:
-    def __init__(self, rts, args):
+    def __init__(self, rts, args, cpu):
         self._event_list = dllist()
         self._rts = rts
         self._args = args
@@ -1186,9 +1186,9 @@ class Simulator:
             end_time = lcm(self._rts.ptasks)
             self.insert_event(Event(end_time, EventType.END, None))
 
+        self._cpu = cpu
         self._scheduler = schedulers[args.scheduler]({"sim": self, "tasks": self._rts.ptasks, "ss_methods": self._ss_methods, "cpu": self._cpu})
         self._last_schedule_time = -1
-
         self._delta = 0.1e-5
 
     def insert_event(self, event):
@@ -1325,11 +1325,13 @@ def main():
     # Retrieve command line arguments.
     args = get_args()
 
+    cpu = Cpu(json.load(args.cpu)) if args.cpu else None
+
     # Simulate the selected rts from the specified file.
     for rts in get_from_file(args.file, mixrange(args.rts)):
         if args.verbose:
-            print("Simulating RTS {0:}".format(rts["id"]), file=sys.stderr)
-        sim = Simulator(Rts(rts), args)
+            print("RTS {0:}".format(rts["id"]), file=sys.stdout)
+        sim = Simulator(Rts(rts), args, cpu)
         sim.sim()
 
 
