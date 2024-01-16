@@ -349,6 +349,7 @@ class RM_SS_mono_e(Scheduler):
         self.energy = 0
         self.tasks = configuration["tasks"]
         self.cpu_lvlz = None
+        self.cpu_curlvl = None
         self.icf_task = None
         self.icf_time = 0
         self.empty_counter = 0
@@ -358,6 +359,7 @@ class RM_SS_mono_e(Scheduler):
         for lvl in self.cpu.lvls:
             if rta(self.tasks, lvl[5]):
                 self.cpu_lvlz = lvl
+                self.cpu_curlvl = lvl
                 break
         else:
             print("No schedulable.", file=sys.stderr)
@@ -453,46 +455,93 @@ class RM_SS_mono_e(Scheduler):
         runtime = job.b
         job.b_temp = job.b
 
-        error = 0.1e-5
+        error = 0.000001
 
         leveldvs = job.leveldvs
         b = job.b
 
         if math.isclose(job.b, job.task.c):
             if (next_stop - time - job.task.c > error) and (len(self.ready_list) == 1):
-                self.f_ideal = job.task.c / (next_stop - time) * self.cpu_lvlz[6]
+                self.f_ideal = job.task.c / (next_stop - time) * self.cpu_lvlz[0]
                 i, l = self.cpu.get_lvl_idx(self.f_ideal)
-                for lvl in self.cpu.lvls[i:]:
+                lvl_list = [(job.task.c * (self.cpu_lvlz[0] / lvl[0]), lvl) for lvl in self.cpu.lvls]
+
+                lvl_i = None
+                for i, lvl in enumerate(reversed(self.cpu.lvls)):
+                    lvl_i = i
+                    if lvl[0] > self.cpu_curlvl[0]:
+                        continue
+                    if self.f_ideal - lvl[0] >= error:
+                       break
+
+                lvl_list = list(reversed(self.cpu.lvls))
+                while True:
+                    lvl = lvl_list[lvl_i]
+                    b = job.task.c * (self.cpu_lvlz[0] / lvl[0])
+                    lvl_i -= 1
+                    if not (b - job.task.c - self.slack > error):
+                        leveldvs = lvl
+                        break
+                """
+                for lvl in self.cpu.lvls[i if i == 0 else i-1:]: # agrega -1
+                    #if self.f_ideal - lvl[0] < error:
+                    #    continue
                     b = job.task.c * (self.cpu_lvlz[0] / lvl[0])
                     if b - job.task.c - self.slack <= error:
                         leveldvs = lvl
                         break
+                """
                 if isclose(job.absolute_deadline, next_stop):
                     pass
                 else:
                     self._slackb = job.task.c * self.slack / (self.slack_time - time - self.slack)
             else:
                 if self.icf_task != self.slack_task or self.icf_time != self.slack_time:
-                    self.f_ideal = ((self.slack_time - time - self.slack) / (self.slack_time - time)) * \
-                                   self.cpu_lvlz[6]
+                    self.f_ideal = ((self.slack_time - time - self.slack) / (self.slack_time - time)) * self.cpu_lvlz[0]
                     self.icf_task = self.slack_task
                     self.icf_time = self.slack_time
+                    lvl_i = None
+                    for i, lvl in enumerate(reversed(self.cpu.lvls)):
+                        lvl_i = i
+                        if lvl[0] > self.cpu_lvlz[0]:
+                            continue
+                        if self.f_ideal - lvl[0] >= error:
+                            break
                     # level p-1 and p
-                    self._cpu_level_p1, self._cpu_level_p = self.cpu.get_adjacent_lvls(self.f_ideal)
+                    self._cpu_level_p1, self._cpu_level_p = list(reversed(self.cpu.lvls))[lvl_i], list(reversed(self.cpu.lvls))[lvl_i-1] #self.cpu.get_adjacent_lvls(self.f_ideal)
                     self.min_level = (self._cpu_level_p1, self._cpu_level_p)
-                    self._slacksob = (self.slack_time - time) * (1 - (self.f_ideal / self._cpu_level_p1[6]))
+                    self._slacksob = (self.slack_time - time) * (1 - (self.f_ideal / self._cpu_level_p1[0]))
                     self._slackb = job.task.c * self.slack / (self.slack_time - time - self.slack)
 
                 b = job.task.c * (self.cpu_lvlz[0] / self.min_level[1][0])
 
                 leveldvs = self.min_level[1]
                 if (b - job.task.c - self._slacksob - self._slackb > error) or (b - job.task.c - self.slack > error):
+                    lvl_i = None
+                    for i, lvl in enumerate(reversed(self.cpu.lvls)):
+                        lvl_i = i
+                        if lvl[0] > self.cpu_curlvl[0]:
+                            continue
+                        if self.f_ideal - lvl[0] >= error:
+                            break
+
+                    lvl_list = list(reversed(self.cpu.lvls))
+                    while True:
+                        lvl_i -= 1
+                        lvl = lvl_list[lvl_i]
+                        b = job.task.c * (self.cpu_lvlz[0] / lvl[0])
+                        if not (b - job.task.c - self.slack > error):
+                            leveldvs = lvl
+                            break
+
+                    """
                     i, l = self.cpu.get_lvl_idx(self.f_ideal)
                     for lvl in self.cpu.lvls[i + 1:]:
                         b = job.task.c * (self.cpu_lvlz[0] / lvl[0])
                         if b - job.task.c - self.slack <= error:
                             leveldvs = lvl
                             break
+                    """
                 else:
                     self._slacksob -= (b - job.task.c * (self.cpu_lvlz[0] / self._cpu_level_p1[0]))
                     leveldvs = self._cpu_level_p
@@ -507,11 +556,12 @@ class RM_SS_mono_e(Scheduler):
                             leveldvs = lvl
                             break
             else:
-                self.f_ideal = ((self.slack_time - time - self.slack) / (self.slack_time - time)) * self.cpu_lvlz[6]
+                # uso [0] en lugar de [1]
+                self.f_ideal = ((self.slack_time - time - self.slack) / (self.slack_time - time)) * self.cpu_lvlz[0]
                 # level p-1 and p
                 self._cpu_level_p1, self._cpu_level_p = self.cpu.get_adjacent_lvls(self.f_ideal)
                 self.min_level = (self._cpu_level_p1, self._cpu_level_p)
-                self._slacksob = (self.slack_time - time) * (1 - (self.f_ideal / self._cpu_level_p1[6]))
+                self._slacksob = (self.slack_time - time) * (1 - (self.f_ideal / self._cpu_level_p1[0]))
                 self._slackb = runtime * self.slack / (self.slack_time - time - self.slack)
 
                 leveldvs = self._cpu_level_p
@@ -520,11 +570,25 @@ class RM_SS_mono_e(Scheduler):
 
                 if (b - runtime - self._slacksob - self._slackb > error) or (b - runtime - self.slack > error):
                     i, l = self.cpu.get_lvl_idx(self.f_ideal)
-                    for lvl in self.cpu.lvls[i + 1:]:
+                    # modifico [i+1] por i
+                    for lvl in self.cpu.lvls[i:]:
                         b = runtime * (job.leveldvs[0] / lvl[0])
-                        if b - runtime - self.slack < error:
+                        # agrego abs - y modifico error por 0.001:
+                        if abs(b - runtime - self.slack) < 0.001:
                             leveldvs = lvl
                             break
+
+                    leveldvs_tmp = None
+                    lvl_list = [((runtime * (job.leveldvs[0] / lvl[0])) - runtime - self.slack, runtime * (job.leveldvs[0] / lvl[0]), lvl) for lvl in self.cpu.lvls]
+                    for lvl_l in lvl_list:
+                        if self.f_ideal - lvl_l[2][0] > error:
+                            continue
+                        if lvl_l[0] < 0.001:
+                            leveldvs_tmp = lvl_l[2]
+                            b = lvl_l[1]
+                            break
+
+                    leveldvs = leveldvs_tmp
                 else:
                     self._slacksob -= (b - runtime * (job.leveldvs[0] / self._cpu_level_p1[0]))
 
@@ -533,6 +597,8 @@ class RM_SS_mono_e(Scheduler):
             if leveldvs[0] < job.leveldvs[0]:
                 job.b = b_tmp
                 job.leveldvs = leveldvs
+
+        self.cpu_curlvl = job.leveldvs
 
         return job, job.b - job.b_temp, job.b_temp
 
@@ -757,9 +823,9 @@ def get_minimum_slack(tasks: list):
 
 def reduce_slacks(tasks, amount, t):
     for task in tasks:
-        #task.slack -= amount
-        task.slack = round(task.slack - amount, 3)
-        if isclose(task.slack, 0, abs_tol=1e-5):
+        task.slack -= amount
+        #task.slack = round(task.slack - amount, 3)
+        if isclose(task.slack, 0, abs_tol=1e-3):
             task.slack = 0
         if task.slack < 0:
             print("reduce_slacks: negative slack", file=sys.stderr)
@@ -1209,6 +1275,12 @@ class Simulator:
 
             if event.type == EventType.SCHEDULE:
                 next_event = self._event_list.first.value
+
+                # hack -- if the next event is really really close, skip this scheduling event
+                if next_event.time - now < self._delta:
+                    self.insert_event(Event(next_event.time, EventType.SCHEDULE, None))
+                    continue
+
                 decision = self._scheduler.schedule(now)
                 np_flag = False
                 np = 0

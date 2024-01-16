@@ -51,7 +51,7 @@ class Cpu:
         num_lvls = len(self.lvls)
         for i, lvl in enumerate(rev_lvls):
             num_lvls -= 1
-            if (freq - lvl[6]) >= 0.000000000001:
+            if (freq - lvl[0]) >= 0.00001:
                 lvl_i = i
                 break
             else:
@@ -68,7 +68,7 @@ class Cpu:
 
     def get_lvl_idx(self, freq):
         for i, lvl in enumerate(self.lvls[1:], start=1):
-            if lvl[6] >= freq:
+            if lvl[0] >= freq:
                 return i - 1, self.lvls[i - 1]
 
     def get_lvl(self, lvl):
